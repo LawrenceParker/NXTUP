@@ -23,8 +23,14 @@ const configMissing =
 
 if (configMissing) {
   setStatus("Add your Supabase URL and anon key to config.js, then reload.");
+} else if (!window.supabase) {
+  setStatus("The Supabase library did not load. Check your connection, or turn off any ad blocker for this site, then reload.");
 } else {
-  start();
+  try {
+    start();
+  } catch (err) {
+    setStatus("Startup error: " + err.message + " (check the URL in config.js starts with https://)");
+  }
 }
 
 function start() {
