@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Packs - NXTUP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="cards.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <a class="topbar-brand" href="index.html">NXTUP</a>
+      <p class="topbar-points"><span id="points">0</span> points</p>
+    </header>
+
+    <h1 class="page-title">Open a pack</h1>
+    <p id="pack-info" class="section-note"></p>
+    <p id="status" class="status" role="status"></p>
+
+    <div class="actions">
+      <button id="open" class="btn btn-primary" type="button" disabled>Open pack</button>
+      <button id="reveal-all" class="btn btn-quiet" type="button" hidden>Reveal all</button>
+      <a class="btn btn-quiet" href="collection.html" style="text-decoration:none">View collection</a>
+    </div>
+
+    <ul id="pack-cards" class="card-grid"></ul>
+
+    <section id="odds-section" hidden>
+      <h2 class="section-title">Drop chances</h2>
+      <ul id="odds" class="odds"></ul>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="cards.js"></script>
+  <script src="packs.js"></script>
+</body>
+</html>

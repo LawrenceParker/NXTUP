@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Collection - NXTUP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="cards.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <a class="topbar-brand" href="index.html">NXTUP</a>
+      <p class="topbar-points"><span id="points">0</span> points</p>
+    </header>
+
+    <h1 class="page-title">Your collection</h1>
+    <p id="summary" class="section-note"></p>
+    <p id="status" class="status" role="status"></p>
+
+    <div class="actions">
+      <a class="btn btn-primary" href="packs.html" style="text-decoration:none">Open a pack</a>
+    </div>
+
+    <ul id="collection" class="card-grid"></ul>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="cards.js"></script>
+  <script src="collection.js"></script>
+</body>
+</html>
