@@ -1,0 +1,39 @@
+.filters { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0 0; }
+
+.field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; color: var(--muted); }
+
+.field select,
+.field input {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.field select:focus-visible,
+.field input:focus-visible { outline: 3px solid var(--ink); outline-offset: 1px; }
+
+.item { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.item-foot {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.price { margin: 0; font-weight: 500; }
+.price-sub { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+.item-foot .btn { padding: 0.5rem 0.75rem; font-size: 0.95rem; }
+
+.row { display: flex; gap: 0.5rem; align-items: flex-end; }
+.row .field { flex: 1; min-width: 0; }
+.row .field input { width: 100%; }
+
+.empty { color: var(--muted); }

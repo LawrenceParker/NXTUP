@@ -35,48 +35,159 @@ async function start() {
   }
   const userId = sessionData.session.user.id;
 
-  const [profileRes, cardsRes] = await Promise.all([
-    client.from("profiles").select("points").eq("id", userId).single(),
-    client.from("my_cards").select("*"),
-  ]);
+  let owned = [];
+  let quickSellPercent = null;
 
-  if (profileRes.data) els.points.textContent = profileRes.data.points.toLocaleString();
+  async function load() {
+    const [profileRes, cardsRes, settingsRes] = await Promise.all([
+      client.from("profiles").select("points").eq("id", userId).single(),
+      client.from("my_cards").select("*"),
+      client.from("settings").select("value").eq("key", "quick_sell_percent").maybeSingle(),
+    ]);
 
-  if (cardsRes.error) {
-    setStatus("Could not load your cards: " + cardsRes.error.message);
-    return;
+    if (profileRes.data) els.points.textContent = profileRes.data.points.toLocaleString();
+    if (settingsRes.data) quickSellPercent = Number(settingsRes.data.value);
+
+    if (cardsRes.error) {
+      setStatus("Could not load your cards: " + cardsRes.error.message);
+      return;
+    }
+    owned = cardsRes.data || [];
+    render();
   }
 
-  const owned = cardsRes.data || [];
-  if (owned.length === 0) {
-    els.summary.textContent = "You do not own any cards yet.";
-    return;
+  function quickSellValue(card) {
+    if (quickSellPercent == null || !card.min_price) return null;
+    return Math.round((card.min_price * quickSellPercent) / 100);
   }
 
-  // Group copies of the same card together.
-  const grouped = new Map();
-  for (const row of owned) {
-    const entry = grouped.get(row.card_id);
-    if (entry) entry.count += 1;
-    else grouped.set(row.card_id, { card: row, count: 1 });
+  function buildFooter(group) {
+    const foot = document.createElement("div");
+    foot.className = "item-foot";
+    const card = group.card;
+    const unlisted = group.copies.filter((c) => !c.listing_id);
+    const listed = group.copies.filter((c) => c.listing_id);
+
+    if (unlisted.length > 0 && card.min_price > 0) {
+      const sub = document.createElement("p");
+      sub.className = "price-sub";
+      sub.textContent = "Minimum price: " + card.min_price.toLocaleString() + " points";
+
+      const row = document.createElement("div");
+      row.className = "row";
+
+      const field = document.createElement("label");
+      field.className = "field";
+      field.textContent = "Your price";
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = card.min_price;
+      input.step = 1;
+      input.value = card.min_price;
+      field.appendChild(input);
+
+      const listBtn = document.createElement("button");
+      listBtn.type = "button";
+      listBtn.className = "btn btn-primary";
+      listBtn.textContent = "List";
+      listBtn.addEventListener("click", () => listCard(unlisted[0], Number(input.value)));
+
+      row.append(field, listBtn);
+      foot.append(sub, row);
+
+      const value = quickSellValue(card);
+      if (value != null) {
+        const quick = document.createElement("button");
+        quick.type = "button";
+        quick.className = "btn btn-quiet";
+        quick.textContent = "Quick sell for " + value.toLocaleString() + " points";
+        quick.addEventListener("click", () => quickSell(unlisted[0], value));
+        foot.appendChild(quick);
+      }
+    } else if (unlisted.length > 0) {
+      const note = document.createElement("p");
+      note.className = "price-sub";
+      note.textContent = "No minimum price is set for this rarity yet.";
+      foot.appendChild(note);
+    }
+
+    listed.forEach((copy) => {
+      const line = document.createElement("p");
+      line.className = "price";
+      line.textContent = "Listed for " + copy.listing_price.toLocaleString() + " points";
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "btn btn-quiet";
+      cancel.textContent = "Cancel listing";
+      cancel.addEventListener("click", () => cancelListing(copy));
+      foot.append(line, cancel);
+    });
+
+    return foot;
   }
 
-  // Highest rarity first, then highest rating, then name.
-  const entries = [...grouped.values()].sort(
-    (a, b) =>
-      b.card.rarity_order - a.card.rarity_order ||
-      b.card.rating - a.card.rating ||
-      a.card.player.localeCompare(b.card.player)
-  );
+  function render() {
+    if (owned.length === 0) {
+      els.summary.textContent = "You do not own any cards yet.";
+      els.collection.replaceChildren();
+      return;
+    }
 
-  els.summary.textContent =
-    owned.length.toLocaleString() + " cards, " + entries.length.toLocaleString() + " different.";
+    const grouped = new Map();
+    for (const row of owned) {
+      const entry = grouped.get(row.card_id);
+      if (entry) entry.copies.push(row);
+      else grouped.set(row.card_id, { card: row, copies: [row] });
+    }
 
-  els.collection.replaceChildren(
-    ...entries.map(({ card, count }) => {
-      const li = document.createElement("li");
-      li.appendChild(window.NXTUP_buildCard(card, { count }));
-      return li;
-    })
-  );
+    const groups = [...grouped.values()].sort(
+      (a, b) =>
+        b.card.rarity_order - a.card.rarity_order ||
+        b.card.rating - a.card.rating ||
+        a.card.player.localeCompare(b.card.player)
+    );
+
+    els.summary.textContent =
+      owned.length.toLocaleString() + " cards, " + groups.length.toLocaleString() + " different.";
+
+    els.collection.replaceChildren(
+      ...groups.map((group) => {
+        const li = document.createElement("li");
+        li.className = "item";
+        li.append(
+          window.NXTUP_buildCard(group.card, { count: group.copies.length }),
+          buildFooter(group)
+        );
+        return li;
+      })
+    );
+  }
+
+  async function listCard(copy, price) {
+    setStatus("");
+    if (!Number.isInteger(price) || price < copy.min_price) {
+      setStatus("The price must be a whole number of at least " + copy.min_price.toLocaleString() + " points.");
+      return;
+    }
+    const { error } = await client.rpc("list_card", { p_user_card_id: copy.user_card_id, p_price: price });
+    setStatus(error ? "Could not list this card: " + error.message : "Listed " + copy.player + " for " + price.toLocaleString() + " points.");
+    await load();
+  }
+
+  async function cancelListing(copy) {
+    setStatus("");
+    const { error } = await client.rpc("cancel_listing", { p_listing_id: copy.listing_id });
+    setStatus(error ? "Could not cancel: " + error.message : "Listing cancelled.");
+    await load();
+  }
+
+  async function quickSell(copy, value) {
+    if (!window.confirm("Quick sell " + copy.player + " (" + copy.rarity + ") for " + value.toLocaleString() + " points? This cannot be undone.")) return;
+    setStatus("");
+    const { data, error } = await client.rpc("quick_sell", { p_user_card_id: copy.user_card_id });
+    setStatus(error ? "Could not quick sell: " + error.message : "Sold " + copy.player + " for " + Number(data).toLocaleString() + " points.");
+    await load();
+  }
+
+  await load();
 }

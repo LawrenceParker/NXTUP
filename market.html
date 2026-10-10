@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Marketplace - NXTUP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="cards.css">
+  <link rel="stylesheet" href="market.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <a class="topbar-brand" href="index.html">NXTUP</a>
+      <p class="topbar-points"><span id="points">0</span> points</p>
+    </header>
+
+    <h1 class="page-title">Marketplace</h1>
+    <p id="summary" class="section-note"></p>
+    <p id="status" class="status" role="status"></p>
+
+    <div class="filters" id="filters" hidden>
+      <label class="field">Rarity
+        <select id="filter-rarity"><option value="">All rarities</option></select>
+      </label>
+      <label class="field">Sort by
+        <select id="sort">
+          <option value="newest">Newest</option>
+          <option value="price-asc">Price, low to high</option>
+          <option value="price-desc">Price, high to low</option>
+          <option value="rarity">Rarity, highest first</option>
+        </select>
+      </label>
+    </div>
+
+    <ul id="listings" class="card-grid"></ul>
+    <p id="empty" class="empty" hidden>No cards are listed right now.</p>
+
+    <div class="actions">
+      <a class="btn btn-quiet" href="collection.html" style="text-decoration:none">Your collection</a>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="cards.js"></script>
+  <script src="market.js"></script>
+</body>
+</html>
