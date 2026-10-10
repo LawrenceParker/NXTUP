@@ -62,9 +62,20 @@ async function start() {
     const { data } = await client.from("profiles").select("points").eq("id", userId).single();
     points = data ? data.points : 0;
     els.points.textContent = points.toLocaleString();
-    els.open.disabled = points < cost;
-    if (points < cost) {
+    updateOpenButton();
+  }
+
+  // The open button stays off while cards are still face down,
+  // so a new pack can never replace an unrevealed one on screen.
+  function updateOpenButton() {
+    const pending = els.cards.querySelectorAll(".card-back").length > 0;
+    els.open.disabled = pending || points < cost;
+    if (pending) {
+      setStatus("Reveal your cards to open another pack.");
+    } else if (points < cost) {
       setStatus("You need " + cost.toLocaleString() + " points to open a pack. Make predictions to earn more.");
+    } else {
+      setStatus("");
     }
   }
 
@@ -107,6 +118,7 @@ async function start() {
 
   function updateRevealAll() {
     els.revealAll.hidden = els.cards.querySelectorAll(".card-back").length === 0;
+    updateOpenButton();
   }
 
   els.revealAll.addEventListener("click", () => {
@@ -122,12 +134,12 @@ async function start() {
     const { data, error } = await client.rpc("open_pack");
 
     if (error) {
+      await refreshPoints();
       setStatus(
         error.message.includes("Not enough points")
           ? "You do not have enough points for a pack."
           : "Could not open the pack: " + error.message
       );
-      await refreshPoints();
       return;
     }
 
