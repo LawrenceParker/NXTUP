@@ -1,0 +1,100 @@
+.page {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 4rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.75rem;
+}
+
+.topbar-brand {
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-weight: 700;
+  font-size: 1.75rem;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  text-decoration: none;
+  border-left: 0.25rem solid var(--accent);
+  padding-left: 0.6rem;
+}
+
+.topbar-points { margin: 0; color: var(--muted); }
+.topbar-points span { color: var(--ink); font-weight: 500; }
+
+.page-title {
+  margin: 2rem 0 0.25rem;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.section-title { margin: 2rem 0 0.25rem; font-size: 1.25rem; }
+.section-note { margin: 0 0 1rem; color: var(--muted); }
+
+[hidden] { display: none !important; }
+
+.match-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+
+.match {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.9rem 1rem 1rem;
+}
+
+.match-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.6rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.match-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.match-vs { color: var(--muted); font-size: 0.95rem; }
+
+.team {
+  font: inherit;
+  font-weight: 500;
+  text-align: center;
+  background: var(--bg);
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 0.375rem;
+  padding: 0.7rem 0.5rem;
+  cursor: pointer;
+}
+
+.team:hover:not(:disabled) { border-color: var(--muted); }
+
+.team:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+.team[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: #fbeaec;
+}
+
+.team:disabled { cursor: default; }
+
+.team.is-winner { border-color: var(--ink); }
+
+.match-note { margin: 0.6rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.match-note.is-correct { color: #1f7a3d; }
+.match-note.is-wrong { color: var(--accent); }
+
+@media (max-width: 30rem) {
+  .match-teams { grid-template-columns: 1fr; }
+  .match-vs { text-align: center; }
+}

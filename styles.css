@@ -112,3 +112,7 @@ body {
   margin: 1rem 0 0;
   color: var(--accent);
 }
+
+.nav { margin: 1.5rem 0 0; }
+.nav a { color: var(--ink); font-weight: 500; }
+.nav a:hover { color: var(--accent); }

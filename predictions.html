@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Predictions - NXTUP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="predictions.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <a class="topbar-brand" href="index.html">NXTUP</a>
+      <p class="topbar-points"><span id="points">0</span> points</p>
+    </header>
+
+    <h1 class="page-title">Predictions</h1>
+    <p id="status" class="status" role="status"></p>
+
+    <section id="upcoming-section" hidden>
+      <h2 class="section-title">Upcoming matches</h2>
+      <p class="section-note">Pick a winner before the match starts. You can change your pick until then.</p>
+      <ul id="upcoming" class="match-list"></ul>
+    </section>
+
+    <section id="results-section" hidden>
+      <h2 class="section-title">Started and finished</h2>
+      <ul id="results" class="match-list"></ul>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="predictions.js"></script>
+</body>
+</html>
