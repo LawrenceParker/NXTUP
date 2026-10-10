@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NXTUP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <h1 class="wordmark">NXTUP</h1>
+    <p class="lede">Pick the winner of each VCT match, earn points, and spend them on player card packs.</p>
+
+    <section id="signed-out" hidden>
+      <button id="signin" class="btn btn-discord" type="button">Sign in with Discord</button>
+    </section>
+
+    <section id="signed-in" class="account" hidden>
+      <img id="avatar" class="avatar" alt="" width="56" height="56">
+      <div class="account-text">
+        <p id="name" class="account-name"></p>
+        <p class="account-points"><span id="points">0</span> points</p>
+      </div>
+      <button id="signout" class="btn btn-quiet" type="button">Sign out</button>
+    </section>
+
+    <p id="status" class="status" role="status"></p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
