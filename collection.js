@@ -184,8 +184,8 @@ async function start() {
 
     const groups = [...grouped.values()].sort(
       (a, b) =>
-        b.card.rarity_order - a.card.rarity_order ||
-        b.card.rating - a.card.rating ||
+        (b.card.rarity_order ?? 0) - (a.card.rarity_order ?? 0) ||
+        (b.card.rating ?? 0) - (a.card.rating ?? 0) ||
         a.card.player.localeCompare(b.card.player)
     );
 

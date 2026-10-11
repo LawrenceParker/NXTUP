@@ -73,7 +73,7 @@ async function start() {
   function buildRarityFilter() {
     const current = els.filterRarity.value;
     const rarities = new Map();
-    listings.forEach((l) => rarities.set(l.rarity, l.rarity_order));
+    listings.forEach((l) => rarities.set(l.rarity, l.rarity_order ?? 0));
     const names = [...rarities.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
 
     els.filterRarity.replaceChildren(new Option("All rarities", ""));
@@ -93,7 +93,7 @@ async function start() {
       ending: (a, b) => new Date(a.expires_at) - new Date(b.expires_at),
       "price-asc": (a, b) => a.price - b.price,
       "price-desc": (a, b) => b.price - a.price,
-      rarity: (a, b) => b.rarity_order - a.rarity_order || b.rating - a.rating,
+      rarity: (a, b) => (b.rarity_order ?? 0) - (a.rarity_order ?? 0) || (b.rating ?? 0) - (a.rating ?? 0),
     };
     return rows.sort(sorts[els.sort.value] || sorts.newest);
   }
