@@ -6,39 +6,47 @@
   <title>NXTUP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="shell">
-    <h1 class="wordmark">NXTUP</h1>
-    <p class="lede">Pick the winner of each VCT match, earn points, and spend them on player card packs.</p>
+  <main class="page">
+    <section class="hero">
+      <p class="hero-kicker">VCT prediction game</p>
+      <h1>Call the winner.<br>Open the packs.</h1>
+      <p class="lede">Predict who wins each VCT match, earn points for every correct pick, and spend them on packs of pro player cards. Buy and sell cards in the marketplace.</p>
 
-    <section id="signed-out" hidden>
-      <button id="signin" class="btn btn-discord" type="button">Sign in with Discord</button>
-    </section>
-
-    <section id="signed-in" class="account" hidden>
-      <img id="avatar" class="avatar" alt="" width="56" height="56">
-      <div class="account-text">
-        <p id="name" class="account-name"></p>
-        <p class="account-points"><span id="points">0</span> points</p>
+      <div id="signed-out" hidden>
+        <button id="signin" class="btn btn-discord" type="button">Sign in with Discord</button>
       </div>
-      <button id="signout" class="btn btn-quiet" type="button">Sign out</button>
+      <p id="signed-in" class="welcome" hidden>Welcome back, <strong id="name"></strong>.</p>
+
+      <p id="status" class="status" role="status"></p>
     </section>
 
-    <p class="nav">
-      <a href="predictions.html">Make predictions</a><br>
-      <a href="packs.html">Open packs</a><br>
-      <a href="collection.html">Your collection</a><br>
-      <a href="market.html">Marketplace</a>
-    </p>
-
-    <p id="status" class="status" role="status"></p>
+    <nav class="tiles" aria-label="Sections">
+      <a class="tile" href="predictions.html">
+        <h2 class="tile-title">Predictions</h2>
+        <p class="tile-text">Pick the winner of upcoming matches and earn points.</p>
+      </a>
+      <a class="tile" href="packs.html">
+        <h2 class="tile-title">Packs</h2>
+        <p class="tile-text">Spend points on packs of pro player cards.</p>
+      </a>
+      <a class="tile" href="collection.html">
+        <h2 class="tile-title">Collection</h2>
+        <p class="tile-text">Every card you own, ready to list or quick sell.</p>
+      </a>
+      <a class="tile" href="market.html">
+        <h2 class="tile-title">Marketplace</h2>
+        <p class="tile-text">Buy cards other players have listed.</p>
+      </a>
+    </nav>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
   <script src="config.js"></script>
+  <script src="nav.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

@@ -30,7 +30,7 @@ if (!window.supabase || !config.SUPABASE_URL || config.SUPABASE_URL.startsWith("
 }
 
 async function start() {
-  const client = window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
+  const client = window.NXTUP_client || window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
 
   const { data: sessionData } = await client.auth.getSession();
   if (!sessionData.session) {

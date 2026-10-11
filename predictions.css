@@ -1,42 +1,4 @@
-.page {
-  max-width: 62rem;
-  margin: 0 auto;
-  padding: 1.5rem 1.5rem 4rem;
-}
-
-.topbar {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 0.75rem;
-}
-
-.topbar-brand {
-  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
-  font-weight: 700;
-  font-size: 1.75rem;
-  letter-spacing: 0.01em;
-  color: var(--ink);
-  text-decoration: none;
-  border-left: 0.25rem solid var(--accent);
-  padding-left: 0.6rem;
-}
-
-.topbar-points { margin: 0; color: var(--muted); }
-.topbar-points span { color: var(--ink); font-weight: 500; }
-
-.page-title {
-  margin: 2rem 0 0.25rem;
-  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
-  font-size: 2.5rem;
-  line-height: 1;
-}
-
-.section-title { margin: 2rem 0 0.25rem; font-size: 1.25rem; }
-.section-note { margin: 0 0 1rem; color: var(--muted); }
-
-[hidden] { display: none !important; }
+/* Predictions page. Colours come from styles.css. */
 
 .match-list {
   list-style: none;
@@ -57,7 +19,7 @@
 .match {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 0.5rem;
+  border-radius: var(--radius);
   padding: 0.9rem 1rem 1rem;
 }
 
@@ -65,10 +27,13 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.7rem;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
 }
+
+.match-meta span:first-child { color: var(--ink); font-weight: 500; }
 
 .match-teams {
   display: grid;
@@ -77,41 +42,51 @@
   gap: 0.75rem;
 }
 
-.match-vs { color: var(--muted); font-size: 0.95rem; }
+.match-vs {
+  color: var(--muted);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
 
 .team {
   font: inherit;
-  font-weight: 500;
+  font-weight: 600;
   text-align: center;
-  background: var(--bg);
+  background: var(--surface-2);
   color: var(--ink);
   border: 2px solid var(--line);
-  border-radius: 0.375rem;
+  border-radius: var(--radius);
   padding: 0.7rem 0.5rem;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0.15rem;
   min-height: 3.4rem;
-  justify-content: center;
-}
-
-.team-name { overflow-wrap: anywhere; }
-
-.pick-tag {
-  font-size: 0.8rem;
-  font-weight: 400;
-  color: var(--muted);
+  transition: border-color 0.12s, background 0.12s;
 }
 
 .team:hover:not(:disabled) { border-color: var(--muted); }
 
-.team:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.team-name { overflow-wrap: anywhere; }
 
+.pick-tag {
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Your pick while the match is open or locked: light outline.
+   Green and red are kept for results only. */
 .team[aria-pressed="true"] {
   border-color: var(--ink);
-  background: #e3e7eb;
+  background: var(--select-bg);
 }
 
 .team:disabled { cursor: default; color: var(--ink); }
@@ -119,22 +94,22 @@
 /* Results: winner green, loser red. These override the selected look. */
 .team.is-winner,
 .team.is-winner[aria-pressed="true"] {
-  border-color: #1f7a3d;
-  background: #e3f3e8;
+  border-color: var(--good);
+  background: var(--good-bg);
 }
 
 .team.is-loser,
 .team.is-loser[aria-pressed="true"] {
-  border-color: #c8323c;
-  background: #fbe6e8;
+  border-color: var(--bad);
+  background: var(--bad-bg);
 }
 
 .team.is-winner .pick-tag,
 .team.is-loser .pick-tag { color: var(--ink); }
 
-.match-note { margin: 0.6rem 0 0; color: var(--muted); font-size: 0.95rem; }
-.match-note.is-correct { color: #1f7a3d; }
-.match-note.is-wrong { color: var(--accent); }
+.match-note { margin: 0.7rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.match-note.is-correct { color: var(--good); }
+.match-note.is-wrong { color: var(--bad); }
 
 @media (max-width: 30rem) {
   .match-teams { grid-template-columns: 1fr; }
