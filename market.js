@@ -23,6 +23,15 @@ function setStatusWithLink(message, href, linkText) {
   els.status.appendChild(a);
 }
 
+function formatRemaining(iso) {
+  const ms = new Date(iso) - new Date();
+  if (ms <= 0) return "ended";
+  const totalMinutes = Math.ceil(ms / 60000);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return h > 0 ? h + "h " + m + "m" : m + "m";
+}
+
 if (!window.supabase || !config.SUPABASE_URL || config.SUPABASE_URL.startsWith("PASTE")) {
   setStatus("Supabase is not set up. Check config.js.");
 } else {
@@ -73,9 +82,15 @@ async function start() {
   }
 
   function visibleListings() {
-    let rows = listings.filter((l) => !els.filterRarity.value || l.rarity === els.filterRarity.value);
+    const now = new Date();
+    let rows = listings.filter(
+      (l) =>
+        new Date(l.expires_at) > now &&
+        (!els.filterRarity.value || l.rarity === els.filterRarity.value)
+    );
     const sorts = {
       newest: (a, b) => new Date(b.created_at) - new Date(a.created_at),
+      ending: (a, b) => new Date(a.expires_at) - new Date(b.expires_at),
       "price-asc": (a, b) => a.price - b.price,
       "price-desc": (a, b) => b.price - a.price,
       rarity: (a, b) => b.rarity_order - a.rarity_order || b.rating - a.rating,
@@ -100,21 +115,23 @@ async function start() {
     const mine = l.seller_id === userId;
     sub.textContent = mine ? "Your listing" : "Sold by " + l.seller_name;
 
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = mine ? "btn btn-quiet" : "btn btn-primary";
+    const left = document.createElement("p");
+    left.className = "price-sub";
+    left.textContent = "Ends in " + formatRemaining(l.expires_at);
 
-    if (mine) {
-      btn.textContent = "Cancel listing";
-      btn.addEventListener("click", () => cancel(l));
-    } else {
+    foot.append(price, sub, left);
+
+    if (!mine) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-primary";
       btn.textContent = "Buy";
       btn.disabled = points < l.price;
       if (points < l.price) sub.textContent += ". You need " + (l.price - points).toLocaleString() + " more points.";
       btn.addEventListener("click", () => buy(l));
+      foot.appendChild(btn);
     }
 
-    foot.append(price, sub, btn);
     li.appendChild(foot);
     return li;
   }
@@ -140,16 +157,11 @@ async function start() {
     await load();
   }
 
-  async function cancel(l) {
-    setStatus("");
-    const { error } = await client.rpc("cancel_listing", { p_listing_id: l.listing_id });
-    if (error) setStatus("Could not cancel: " + error.message);
-    else setStatus("Listing cancelled.");
-    await load();
-  }
-
   els.filterRarity.addEventListener("change", render);
   els.sort.addEventListener("change", render);
+
+  // Keep the countdowns fresh and drop listings as their timers end.
+  setInterval(render, 30000);
 
   await load();
 }

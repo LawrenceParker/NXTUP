@@ -19,6 +19,15 @@ function setStatusWithLink(message, href, linkText) {
   els.status.appendChild(a);
 }
 
+function formatRemaining(iso) {
+  const ms = new Date(iso) - new Date();
+  if (ms <= 0) return "ended";
+  const totalMinutes = Math.ceil(ms / 60000);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return h > 0 ? h + "h " + m + "m" : m + "m";
+}
+
 if (!window.supabase || !config.SUPABASE_URL || config.SUPABASE_URL.startsWith("PASTE")) {
   setStatus("Supabase is not set up. Check config.js.");
 } else {
@@ -37,16 +46,32 @@ async function start() {
 
   let owned = [];
   let quickSellPercent = null;
+  let durations = [1];
+  let defaultHours = 1;
 
   async function load() {
     const [profileRes, cardsRes, settingsRes] = await Promise.all([
       client.from("profiles").select("points").eq("id", userId).single(),
       client.from("my_cards").select("*"),
-      client.from("settings").select("value").eq("key", "quick_sell_percent").maybeSingle(),
+      client
+        .from("settings")
+        .select("key, value")
+        .in("key", ["quick_sell_percent", "listing_durations_hours", "default_listing_hours"]),
     ]);
 
     if (profileRes.data) els.points.textContent = profileRes.data.points.toLocaleString();
-    if (settingsRes.data) quickSellPercent = Number(settingsRes.data.value);
+    if (settingsRes.data) {
+      const s = Object.fromEntries(settingsRes.data.map((row) => [row.key, row.value]));
+      if (s.quick_sell_percent != null) quickSellPercent = Number(s.quick_sell_percent);
+      if (s.listing_durations_hours) {
+        const list = s.listing_durations_hours
+          .split(",")
+          .map((x) => Number(x.trim()))
+          .filter((n) => Number.isInteger(n) && n > 0);
+        if (list.length) durations = list;
+      }
+      if (s.default_listing_hours) defaultHours = Number(s.default_listing_hours);
+    }
 
     if (cardsRes.error) {
       setStatus("Could not load your cards: " + cardsRes.error.message);
@@ -73,6 +98,25 @@ async function start() {
       sub.className = "price-sub";
       sub.textContent = "Minimum price: " + card.min_price.toLocaleString() + " points";
 
+      let hours = durations.includes(defaultHours) ? defaultHours : durations[0];
+      const tabs = document.createElement("div");
+      tabs.className = "tabs";
+      tabs.setAttribute("role", "radiogroup");
+      tabs.setAttribute("aria-label", "Listing length");
+      durations.forEach((h) => {
+        const tab = document.createElement("button");
+        tab.type = "button";
+        tab.className = "tab";
+        tab.textContent = h + (h === 1 ? " hr" : " hrs");
+        tab.setAttribute("role", "radio");
+        tab.setAttribute("aria-checked", String(h === hours));
+        tab.addEventListener("click", () => {
+          hours = h;
+          tabs.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-checked", String(t === tab)));
+        });
+        tabs.appendChild(tab);
+      });
+
       const row = document.createElement("div");
       row.className = "row";
 
@@ -90,10 +134,10 @@ async function start() {
       listBtn.type = "button";
       listBtn.className = "btn btn-primary";
       listBtn.textContent = "List";
-      listBtn.addEventListener("click", () => listCard(unlisted[0], Number(input.value)));
+      listBtn.addEventListener("click", () => listCard(unlisted[0], Number(input.value), hours));
 
       row.append(field, listBtn);
-      foot.append(sub, row);
+      foot.append(sub, tabs, row);
 
       const value = quickSellValue(card);
       if (value != null) {
@@ -115,12 +159,10 @@ async function start() {
       const line = document.createElement("p");
       line.className = "price";
       line.textContent = "Listed for " + copy.listing_price.toLocaleString() + " points";
-      const cancel = document.createElement("button");
-      cancel.type = "button";
-      cancel.className = "btn btn-quiet";
-      cancel.textContent = "Cancel listing";
-      cancel.addEventListener("click", () => cancelListing(copy));
-      foot.append(line, cancel);
+      const left = document.createElement("p");
+      left.className = "price-sub";
+      left.textContent = "Ends in " + formatRemaining(copy.listing_expires_at);
+      foot.append(line, left);
     });
 
     return foot;
@@ -163,21 +205,23 @@ async function start() {
     );
   }
 
-  async function listCard(copy, price) {
+  async function listCard(copy, price, hours) {
     setStatus("");
     if (!Number.isInteger(price) || price < copy.min_price) {
       setStatus("The price must be a whole number of at least " + copy.min_price.toLocaleString() + " points.");
       return;
     }
-    const { error } = await client.rpc("list_card", { p_user_card_id: copy.user_card_id, p_price: price });
-    setStatus(error ? "Could not list this card: " + error.message : "Listed " + copy.player + " for " + price.toLocaleString() + " points.");
-    await load();
-  }
-
-  async function cancelListing(copy) {
-    setStatus("");
-    const { error } = await client.rpc("cancel_listing", { p_listing_id: copy.listing_id });
-    setStatus(error ? "Could not cancel: " + error.message : "Listing cancelled.");
+    if (!window.confirm("List " + copy.player + " for " + price.toLocaleString() + " points for " + hours + (hours === 1 ? " hour" : " hours") + "? You cannot cancel a listing once it is placed.")) return;
+    const { error } = await client.rpc("list_card", {
+      p_user_card_id: copy.user_card_id,
+      p_price: price,
+      p_hours: hours,
+    });
+    setStatus(
+      error
+        ? "Could not list this card: " + error.message
+        : "Listed " + copy.player + " for " + price.toLocaleString() + " points. It ends in " + hours + (hours === 1 ? " hour." : " hours.")
+    );
     await load();
   }
 

@@ -37,3 +37,20 @@
 .row .field input { width: 100%; }
 
 .empty { color: var(--muted); }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+
+.tab {
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: var(--bg);
+  border: 2px solid var(--line);
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.tab:hover { border-color: var(--muted); }
+.tab:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.tab[aria-checked="true"] { border-color: var(--accent); background: #fbeaec; }
