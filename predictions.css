@@ -1,5 +1,5 @@
 .page {
-  max-width: 44rem;
+  max-width: 62rem;
   margin: 0 auto;
   padding: 1.5rem 1.5rem 4rem;
 }
@@ -38,7 +38,21 @@
 
 [hidden] { display: none !important; }
 
-.match-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.match-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+@media (min-width: 52rem) {
+  .match-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* "No upcoming matches" message spans both columns */
+.match-list > .section-note { grid-column: 1 / -1; }
 
 .match {
   background: var(--surface);
@@ -75,6 +89,20 @@
   border-radius: 0.375rem;
   padding: 0.7rem 0.5rem;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 3.4rem;
+  justify-content: center;
+}
+
+.team-name { overflow-wrap: anywhere; }
+
+.pick-tag {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .team:hover:not(:disabled) { border-color: var(--muted); }
@@ -82,13 +110,27 @@
 .team:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 
 .team[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: #fbeaec;
+  border-color: var(--ink);
+  background: #e3e7eb;
 }
 
-.team:disabled { cursor: default; }
+.team:disabled { cursor: default; color: var(--ink); }
 
-.team.is-winner { border-color: var(--ink); }
+/* Results: winner green, loser red. These override the selected look. */
+.team.is-winner,
+.team.is-winner[aria-pressed="true"] {
+  border-color: #1f7a3d;
+  background: #e3f3e8;
+}
+
+.team.is-loser,
+.team.is-loser[aria-pressed="true"] {
+  border-color: #c8323c;
+  background: #fbe6e8;
+}
+
+.team.is-winner .pick-tag,
+.team.is-loser .pick-tag { color: var(--ink); }
 
 .match-note { margin: 0.6rem 0 0; color: var(--muted); font-size: 0.95rem; }
 .match-note.is-correct { color: #1f7a3d; }

@@ -38,17 +38,18 @@ async function start() {
   }
   const userId = session.user.id;
 
-  const [profileRes, matchesRes, picksRes] = await Promise.all([
+  const [profileRes, matchesRes, picksRes, settingsRes] = await Promise.all([
     client.from("profiles").select("points").eq("id", userId).single(),
     client
       .from("matches")
-      .select("id, event, team_a, team_b, start_time, winner, status")
+      .select("id, event, stage, team_a, team_b, starts_at, winner, status, reward")
       .neq("status", "cancelled")
-      .order("start_time", { ascending: true }),
+      .order("starts_at", { ascending: true }),
     client
       .from("predictions")
       .select("match_id, pick, correct, points_awarded, settled")
       .eq("user_id", userId),
+    client.from("settings").select("value").eq("key", "points_per_correct_pick").maybeSingle(),
   ]);
 
   if (matchesRes.error) {
@@ -61,8 +62,15 @@ async function start() {
   const matches = matchesRes.data || [];
   const picks = new Map((picksRes.data || []).map((p) => [p.match_id, p]));
 
+  const defaultReward = settingsRes.data ? Number(settingsRes.data.value) : null;
+
+  // A match's own reward, or the default from settings when it has none.
+  function rewardFor(match) {
+    return match.reward != null ? match.reward : defaultReward;
+  }
+
   function isOpen(match) {
-    return match.status === "upcoming" && new Date(match.start_time) > new Date();
+    return match.status === "upcoming" && new Date(match.starts_at) > new Date();
   }
 
   function formatTime(iso) {
@@ -79,10 +87,25 @@ async function start() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "team";
-    btn.textContent = side === "a" ? match.team_a : match.team_b;
-    btn.setAttribute("aria-pressed", pick && pick.pick === side ? "true" : "false");
+    const name = document.createElement("span");
+    name.className = "team-name";
+    name.textContent = side === "a" ? match.team_a : match.team_b;
+    btn.appendChild(name);
+
+    const picked = Boolean(pick) && pick.pick === side;
+    btn.setAttribute("aria-pressed", picked ? "true" : "false");
     btn.disabled = !open;
-    if (match.winner === side) btn.classList.add("is-winner");
+
+    // Once a result is in: winner green, loser red.
+    if (match.winner) btn.classList.add(match.winner === side ? "is-winner" : "is-loser");
+
+    if (picked) {
+      const tag = document.createElement("span");
+      tag.className = "pick-tag";
+      tag.textContent = open ? "Selected" : "Your pick";
+      btn.appendChild(tag);
+    }
+
     if (open) btn.addEventListener("click", () => savePick(match, side));
     return btn;
   }
@@ -91,7 +114,9 @@ async function start() {
     const note = document.createElement("p");
     note.className = "match-note";
     if (open) {
-      note.textContent = pick ? "Your pick is saved." : "No pick yet.";
+      const reward = rewardFor(match);
+      const earn = reward != null ? " A correct pick earns " + reward.toLocaleString() + " points." : "";
+      note.textContent = (pick ? "Your pick is saved." : "No pick yet.") + earn;
     } else if (!match.winner) {
       note.textContent = pick ? "Picks are locked. Waiting for the result." : "Picks are locked. You did not pick.";
     } else if (!pick) {
@@ -119,9 +144,9 @@ async function start() {
     const meta = document.createElement("p");
     meta.className = "match-meta";
     const eventEl = document.createElement("span");
-    eventEl.textContent = match.event;
+    eventEl.textContent = match.stage ? match.event + ", " + match.stage : match.event;
     const timeEl = document.createElement("span");
-    timeEl.textContent = formatTime(match.start_time);
+    timeEl.textContent = formatTime(match.starts_at);
     meta.append(eventEl, timeEl);
 
     const teams = document.createElement("div");
