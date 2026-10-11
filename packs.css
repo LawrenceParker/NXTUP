@@ -1,0 +1,206 @@
+/* Packs page: pack tiles, opening animation, card reveal. */
+
+/* ---------------- pack tiles ---------------- */
+
+.pack-grid {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1rem;
+}
+
+.pack {
+  --pack: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.pack-art {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: linear-gradient(155deg, var(--surface-2), var(--bg));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.3rem;
+  padding-top: 1.3rem;
+  text-align: center;
+  transform-origin: 50% 85%;
+}
+
+/* a bold diagonal band in the pack's colour */
+.pack-art::before {
+  content: "";
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  top: 68%;
+  height: 20%;
+  background: var(--pack);
+  transform: rotate(-11deg);
+}
+
+.pack-art-name {
+  position: relative;
+  padding: 0 0.6rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 2rem;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pack-art-count {
+  position: relative;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pack-body { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+
+.pack-desc { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+.pack-cost {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.6rem;
+  letter-spacing: 0.04em;
+}
+
+.pack-cost span { color: var(--pack); }
+
+.pack-need { margin: 0; min-height: 1.3em; color: var(--muted); font-size: 0.9rem; }
+
+.pack .btn { width: 100%; }
+
+.pack-odds summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pack-odds summary:hover { color: var(--ink); }
+
+/* ---------------- opening animation ---------------- */
+
+@keyframes pack-shake {
+  0%, 100% { transform: translateX(0) rotate(0) scale(1); }
+  15% { transform: translateX(-5px) rotate(-2deg) scale(1.02); }
+  30% { transform: translateX(5px) rotate(2deg) scale(1.03); }
+  45% { transform: translateX(-4px) rotate(-1.5deg) scale(1.04); }
+  60% { transform: translateX(4px) rotate(1.5deg) scale(1.05); }
+  80% { transform: translateX(-2px) rotate(-1deg) scale(1.06); }
+}
+
+.pack-art.is-shaking {
+  animation: pack-shake 0.7s ease-in-out;
+  border-color: var(--pack);
+}
+
+/* ---------------- your pull ---------------- */
+
+.stage { scroll-margin-top: 4.5rem; }
+
+.stage-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.stage-actions { display: flex; gap: 0.5rem; }
+
+.deal-grid {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.9rem;
+}
+
+@keyframes deal {
+  from { opacity: 0; transform: translateY(22px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.deal { animation: deal 0.4s ease both; }
+
+/* card flip: back and front share one box */
+.flip { perspective: 900px; height: 16.5rem; }
+
+.flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease;
+}
+
+.flip.is-flipped .flip-inner { transform: rotateY(180deg); }
+
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-front { transform: rotateY(180deg); }
+.flip-front .card { height: 100%; min-height: 0; overflow: hidden; }
+
+.flip-back {
+  font: inherit;
+  color: var(--muted);
+  background: repeating-linear-gradient(135deg, var(--surface-2) 0 10px, var(--surface) 10px 20px);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--muted);
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.flip-back:hover { color: var(--ink); border-color: var(--muted); }
+
+.flip-back-mark {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.9rem;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+.flip-back-hint {
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pack-art.is-shaking,
+  .deal { animation: none; }
+  .flip-inner { transition: none; }
+}

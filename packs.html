@@ -9,25 +9,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="cards.css">
+  <link rel="stylesheet" href="packs.css">
 </head>
 <body>
   <main class="page">
-
-    <h1 class="page-title">Open a pack</h1>
-    <p id="pack-info" class="section-note"></p>
+    <h1 class="page-title">Packs</h1>
+    <p class="section-note">Spend points to open a pack, then flip each card to see what you pulled.</p>
     <p id="status" class="status" role="status"></p>
 
-    <div class="actions">
-      <button id="open" class="btn btn-primary" type="button" disabled>Open pack</button>
-      <button id="reveal-all" class="btn btn-quiet" type="button" hidden>Reveal all</button>
-      <a class="btn btn-quiet" href="collection.html" style="text-decoration:none">View collection</a>
-    </div>
+    <section id="stage-section" class="stage" hidden>
+      <div class="stage-head">
+        <h2 class="section-title">Your pull</h2>
+        <div class="stage-actions">
+          <button id="reveal-all" class="btn btn-quiet btn-small" type="button">Reveal all</button>
+          <a class="btn btn-quiet btn-small" href="collection.html">View collection</a>
+        </div>
+      </div>
+      <ul id="pack-cards" class="deal-grid"></ul>
+    </section>
 
-    <ul id="pack-cards" class="card-grid"></ul>
-
-    <section id="odds-section" hidden>
-      <h2 class="section-title">Drop chances</h2>
-      <ul id="odds" class="odds"></ul>
+    <section>
+      <h2 class="section-title">Choose a pack</h2>
+      <ul id="packs" class="pack-grid"></ul>
     </section>
   </main>
 

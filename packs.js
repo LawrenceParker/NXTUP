@@ -3,13 +3,14 @@ const config = window.NXTUP_CONFIG || {};
 const els = {
   status: document.getElementById("status"),
   points: document.getElementById("points"),
-  info: document.getElementById("pack-info"),
-  open: document.getElementById("open"),
+  packs: document.getElementById("packs"),
+  stageSection: document.getElementById("stage-section"),
+  stage: document.getElementById("pack-cards"),
   revealAll: document.getElementById("reveal-all"),
-  cards: document.getElementById("pack-cards"),
-  oddsSection: document.getElementById("odds-section"),
-  odds: document.getElementById("odds"),
 };
+
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function setStatus(message) {
   els.status.textContent = message || "";
@@ -39,115 +40,228 @@ async function start() {
   }
   const userId = sessionData.session.user.id;
 
-  const [settingsRes, raritiesRes] = await Promise.all([
-    client.from("settings").select("key, value").in("key", ["pack_cost", "pack_card_count"]),
-    client.from("rarities").select("name, drop_weight, sort_order").order("sort_order", { ascending: false }),
+  const [packsRes, raritiesRes, oddsRes] = await Promise.all([
+    client
+      .from("packs")
+      .select("id, name, cost, card_count, sort_order, description, color")
+      .order("sort_order", { ascending: true }),
+    client.from("rarities").select("name, drop_weight, sort_order"),
+    client.from("pack_odds").select("pack_name, rarity, drop_weight"),
   ]);
 
-  const settings = Object.fromEntries((settingsRes.data || []).map((s) => [s.key, Number(s.value)]));
-  const cost = settings.pack_cost;
-  const count = settings.pack_card_count;
-
-  if (!cost || !count) {
-    setStatus("Pack settings are missing. Check that 02_packs.sql ran without errors.");
+  if (packsRes.error) {
+    setStatus("Could not load packs. Check that 08_packs_table.sql ran without errors.");
+    return;
+  }
+  const packs = packsRes.data || [];
+  if (packs.length === 0) {
+    setStatus("No packs have been set up yet. Import packs.csv into the packs table.");
     return;
   }
 
-  els.info.textContent = count + " cards for " + cost.toLocaleString() + " points.";
-  els.open.textContent = "Open pack (" + cost.toLocaleString() + " points)";
-
   let points = 0;
+  let busy = false;
+  const tiles = []; // { pack, button, need, art }
+
+  // ---- drop chances for a pack (its own odds, or the standard ones) -------
+
+  function oddsFor(pack) {
+    const rarities = raritiesRes.data || [];
+    const orderOf = (name) => {
+      const r = rarities.find((x) => x.name === name);
+      return r ? r.sort_order : 0;
+    };
+    const custom = (oddsRes.data || []).filter((o) => o.pack_name === pack.name);
+    const rows = custom.length
+      ? custom.map((o) => ({ name: o.rarity, weight: Number(o.drop_weight), order: orderOf(o.rarity) }))
+      : rarities.map((r) => ({ name: r.name, weight: Number(r.drop_weight), order: r.sort_order }));
+    const usable = rows.filter((r) => r.weight > 0).sort((a, b) => b.order - a.order);
+    const total = usable.reduce((sum, r) => sum + r.weight, 0);
+    return usable.map((r) => ({ name: r.name, pct: total ? (r.weight / total) * 100 : 0 }));
+  }
+
+  // ---- pack tiles ----------------------------------------------------------
+
+  function buildPack(pack) {
+    const li = document.createElement("li");
+    li.className = "pack";
+    if (pack.color) li.style.setProperty("--pack", pack.color);
+
+    const art = document.createElement("div");
+    art.className = "pack-art";
+    const artName = document.createElement("span");
+    artName.className = "pack-art-name";
+    artName.textContent = pack.name;
+    const artCount = document.createElement("span");
+    artCount.className = "pack-art-count";
+    artCount.textContent = pack.card_count + (pack.card_count === 1 ? " card" : " cards");
+    art.append(artName, artCount);
+
+    const body = document.createElement("div");
+    body.className = "pack-body";
+
+    if (pack.description) {
+      const desc = document.createElement("p");
+      desc.className = "pack-desc";
+      desc.textContent = pack.description;
+      body.appendChild(desc);
+    }
+
+    const cost = document.createElement("p");
+    cost.className = "pack-cost";
+    const costNum = document.createElement("span");
+    costNum.textContent = pack.cost.toLocaleString();
+    cost.append(costNum, " points");
+
+    const need = document.createElement("p");
+    need.className = "pack-need";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn btn-primary";
+    button.textContent = "Open pack";
+    button.addEventListener("click", () => openPack(pack, art));
+
+    body.append(cost, need, button);
+
+    const odds = oddsFor(pack);
+    if (odds.length) {
+      const details = document.createElement("details");
+      details.className = "pack-odds";
+      const summary = document.createElement("summary");
+      summary.textContent = "Drop chances";
+      const list = document.createElement("ul");
+      list.className = "odds";
+      odds.forEach((o) => {
+        const item = document.createElement("li");
+        const strong = document.createElement("strong");
+        strong.textContent = o.name;
+        item.append(strong, " " + (o.pct < 1 ? o.pct.toFixed(1) : Math.round(o.pct)) + "%");
+        list.appendChild(item);
+      });
+      details.append(summary, list);
+      body.appendChild(details);
+    }
+
+    li.append(art, body);
+    tiles.push({ pack, button, need, art });
+    return li;
+  }
+
+  els.packs.replaceChildren(...packs.map(buildPack));
+
+  // ---- buttons follow points, busy state and unrevealed cards ----------------
+
+  function unrevealedCount() {
+    return els.stage.querySelectorAll(".flip:not(.is-flipped)").length;
+  }
+
+  function updateButtons() {
+    const pending = unrevealedCount() > 0;
+    tiles.forEach(({ pack, button, need }) => {
+      const short = pack.cost - points;
+      button.disabled = busy || pending || short > 0;
+      need.textContent = short > 0 ? "You need " + short.toLocaleString() + " more points." : "";
+    });
+    els.revealAll.hidden = !pending;
+    if (pending) setStatus("Reveal your cards to open another pack.");
+    else if (els.status.textContent === "Reveal your cards to open another pack.") setStatus("");
+  }
 
   async function refreshPoints() {
     const { data } = await client.from("profiles").select("points").eq("id", userId).single();
     points = data ? data.points : 0;
     els.points.textContent = points.toLocaleString();
-    updateOpenButton();
+    updateButtons();
   }
 
-  // The open button stays off while cards are still face down,
-  // so a new pack can never replace an unrevealed one on screen.
-  function updateOpenButton() {
-    const pending = els.cards.querySelectorAll(".card-back").length > 0;
-    els.open.disabled = pending || points < cost;
-    if (pending) {
-      setStatus("Reveal your cards to open another pack.");
-    } else if (points < cost) {
-      setStatus("You need " + cost.toLocaleString() + " points to open a pack. Make predictions to earn more.");
-    } else {
-      setStatus("");
-    }
+  // ---- showing a pull ----------------------------------------------------------
+
+  function flipCard(flip, back, front) {
+    if (flip.classList.contains("is-flipped")) return;
+    flip.classList.add("is-flipped");
+    front.removeAttribute("aria-hidden");
+    back.tabIndex = -1;
+    back.setAttribute("aria-hidden", "true");
+    updateButtons();
   }
 
-  function renderOdds() {
-    const rarities = (raritiesRes.data || []).filter((r) => Number(r.drop_weight) > 0);
-    const total = rarities.reduce((sum, r) => sum + Number(r.drop_weight), 0);
-    if (!total) return;
-    els.odds.replaceChildren(
-      ...rarities.map((r) => {
-        const li = document.createElement("li");
-        const strong = document.createElement("strong");
-        strong.textContent = r.name;
-        const pct = (Number(r.drop_weight) / total) * 100;
-        li.append(strong, " " + (pct < 1 ? pct.toFixed(1) : Math.round(pct)) + "%");
-        return li;
-      })
-    );
-    els.oddsSection.hidden = false;
+  function buildDealt(card, index) {
+    const li = document.createElement("li");
+    li.className = "deal";
+    li.style.animationDelay = index * 90 + "ms";
+
+    const flip = document.createElement("div");
+    flip.className = "flip";
+    const inner = document.createElement("div");
+    inner.className = "flip-inner";
+
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "flip-face flip-back";
+    back.setAttribute("aria-label", "Reveal card " + (index + 1));
+    const mark = document.createElement("span");
+    mark.className = "flip-back-mark";
+    mark.textContent = "NXTUP";
+    const hint = document.createElement("span");
+    hint.className = "flip-back-hint";
+    hint.textContent = "Reveal";
+    back.append(mark, hint);
+
+    const front = document.createElement("div");
+    front.className = "flip-face flip-front";
+    front.setAttribute("aria-hidden", "true");
+    front.appendChild(window.NXTUP_buildCard(card));
+
+    back.addEventListener("click", () => flipCard(flip, back, front));
+
+    inner.append(back, front);
+    flip.appendChild(inner);
+    li.appendChild(flip);
+    return li;
   }
 
-  function showPack(cards) {
-    els.cards.replaceChildren(
-      ...cards.map((card) => {
-        const li = document.createElement("li");
-        const back = document.createElement("button");
-        back.type = "button";
-        back.className = "card-back";
-        if (card.rarity_color) back.style.setProperty("--rarity", card.rarity_color);
-        back.textContent = "Reveal card";
-        back.addEventListener("click", () => {
-          li.replaceChildren(window.NXTUP_buildCard(card));
-          updateRevealAll();
-        });
-        li.appendChild(back);
-        return li;
-      })
-    );
-    els.revealAll.hidden = false;
-  }
-
-  function updateRevealAll() {
-    els.revealAll.hidden = els.cards.querySelectorAll(".card-back").length === 0;
-    updateOpenButton();
+  function showPull(cards) {
+    els.stage.replaceChildren(...cards.map(buildDealt));
+    els.stageSection.hidden = false;
+    els.stageSection.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
   }
 
   els.revealAll.addEventListener("click", () => {
-    els.cards.querySelectorAll(".card-back").forEach((btn) => btn.click());
+    const backs = [...els.stage.querySelectorAll(".flip:not(.is-flipped) .flip-back")];
+    backs.forEach((back, i) => setTimeout(() => back.click(), reducedMotion ? 0 : i * 140));
   });
 
-  els.open.addEventListener("click", async () => {
-    setStatus("");
-    els.open.disabled = true;
-    els.cards.replaceChildren();
-    els.revealAll.hidden = true;
+  // ---- opening a pack ----------------------------------------------------------
 
-    const { data, error } = await client.rpc("open_pack");
+  async function openPack(pack, art) {
+    if (busy) return;
+    busy = true;
+    setStatus("");
+    updateButtons();
+
+    // The pack shakes while the server does the work (and for at least 0.7s).
+    art.classList.add("is-shaking");
+    const [{ data, error }] = await Promise.all([
+      client.rpc("open_pack", { p_pack_id: pack.id }),
+      sleep(reducedMotion ? 0 : 700),
+    ]);
+    art.classList.remove("is-shaking");
+    busy = false;
 
     if (error) {
       await refreshPoints();
       setStatus(
         error.message.includes("Not enough points")
-          ? "You do not have enough points for a pack."
+          ? "You do not have enough points for that pack."
           : "Could not open the pack: " + error.message
       );
       return;
     }
 
-    showPack(data);
+    showPull(data);
     await refreshPoints();
-    els.open.textContent = "Open another pack (" + cost.toLocaleString() + " points)";
-  });
+  }
 
-  renderOdds();
   await refreshPoints();
 }
