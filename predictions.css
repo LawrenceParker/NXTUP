@@ -38,11 +38,12 @@
 .match-teams {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  align-items: center;
+  align-items: stretch;
   gap: 0.75rem;
 }
 
 .match-vs {
+  align-self: center;
   color: var(--muted);
   font-family: var(--display);
   font-weight: 700;

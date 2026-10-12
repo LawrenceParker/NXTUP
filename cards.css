@@ -103,3 +103,67 @@
 .odds { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; }
 .odds li { color: var(--muted); font-size: 0.95rem; }
 .odds strong { color: var(--ink); font-weight: 600; }
+
+/* ---------------------------------------------------------------
+   Templated cards (category has a template_url).
+   Layers, back to front: player image, frame image, name and team.
+   Sizes use container units (cqw = 1% of the card's width), so the
+   text scales with the card. The proportions below come from the
+   shield design: 718 x 818 px, border 12 px.
+   --------------------------------------------------------------- */
+
+.card-tpl {
+  position: relative;
+  aspect-ratio: 718 / 818;
+  container-type: inline-size;
+  isolation: isolate;
+  overflow: visible;
+}
+
+.tpl-photo,
+.tpl-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* the shield outline: straight sides, angled bottom corners, flat base */
+.tpl-photo {
+  object-fit: cover;
+  object-position: 50% 25%;
+  background: var(--surface-2);
+  clip-path: polygon(0 0, 100% 0, 100% 81.42%, 72.84% 100%, 27.44% 100%, 0 81.42%);
+}
+
+.tpl-frame { pointer-events: none; }
+
+.tpl-name,
+.tpl-team {
+  position: absolute;
+  left: 50%;
+  width: max-content;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: nowrap;
+  text-transform: uppercase;
+  line-height: 1;
+  font-family: "Barlow", system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.tpl-name {
+  top: 72.1%;
+  font-size: calc(10.7cqw * var(--fit, 1));
+  color: #fff;
+}
+
+.tpl-team {
+  top: 81.1%;
+  font-size: calc(5.7cqw * var(--fit, 1));
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+
+.card-tpl .card-count { z-index: 2; }
