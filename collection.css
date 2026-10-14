@@ -1,0 +1,173 @@
+/* My Collection: overall progress, team sections, locked cards. */
+
+.overall {
+  margin-top: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem 0.4rem;
+}
+
+.overall-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.overall-count {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.overall-pct {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.7rem;
+  color: var(--accent);
+}
+
+.overall .section-note { margin: 0.6rem 0 0.4rem; font-size: 0.95rem; }
+
+.progress {
+  height: 0.55rem;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.progress-fill.is-complete { background: var(--good); }
+
+/* ---------------- teams ---------------- */
+
+.teams { display: grid; gap: 0.6rem; margin-top: 1.25rem; }
+
+.team {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.team.is-complete { border-color: var(--good); }
+
+.team > summary {
+  list-style: none;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(7rem, 2fr) 12rem;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+}
+
+.team > summary::-webkit-details-marker { display: none; }
+
+.team > summary:hover { background: var(--surface-2); }
+
+.team[open] > summary { border-bottom: 1px solid var(--line); }
+
+.team-name {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.45rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.team-name::before {
+  content: "";
+  flex: none;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 0.12s;
+}
+
+.team[open] .team-name::before { transform: rotate(45deg); }
+
+.team-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.team-region {
+  flex: none;
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0.15rem 0.4rem;
+}
+
+.team-count {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.team-count .team-pct { color: var(--muted); font-weight: 500; font-size: 0.9rem; }
+
+.team-complete {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--good);
+}
+
+.team-body { padding: 0.25rem 1rem 1.25rem; }
+
+.type-head {
+  --rarity: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1.2rem 0 0.2rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.type-head::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  background: var(--rarity);
+  transform: rotate(45deg);
+}
+
+.type-head .type-count { color: var(--muted); font-family: var(--body); font-weight: 500; font-size: 0.9rem; letter-spacing: 0.04em; }
+
+/* a card you have not collected yet: the real card, dimmed, so you can see what to chase */
+.card-locked > .card-tpl { filter: grayscale(1) brightness(0.52); transition: filter 0.12s; }
+.card-locked:hover > .card-tpl { filter: grayscale(0.7) brightness(0.7); }
+
+@media (max-width: 44rem) {
+  .team > summary {
+    grid-template-columns: 1fr auto;
+    row-gap: 0.5rem;
+  }
+  .team > summary .progress { grid-column: 1 / -1; grid-row: 2; }
+  .team-name { font-size: 1.3rem; }
+}

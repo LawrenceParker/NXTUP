@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cards - NXTUP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="cards.css">
+  <link rel="stylesheet" href="market.css">
+</head>
+<body>
+  <main class="page">
+
+    <h1 class="page-title">Cards</h1>
+    <p id="summary" class="section-note"></p>
+    <p id="status" class="status" role="status"></p>
+
+    <div class="actions">
+      <a class="btn btn-primary" href="packs.html">Open a pack</a>
+      <a class="btn btn-quiet" href="market.html">Marketplace</a>
+      <a class="btn btn-quiet" href="collection.html">My Collection</a>
+    </div>
+
+    <div class="filters" id="filters" hidden>
+      <label class="field">Type
+        <select id="filter-type"><option value="">All types</option></select>
+      </label>
+      <label class="field">Sort by
+        <select id="sort">
+          <option value="rarity">Type, highest first</option>
+          <option value="newest">Newest</option>
+          <option value="name">Player, A to Z</option>
+        </select>
+      </label>
+    </div>
+
+    <ul id="cards" class="card-grid"></ul>
+    <p id="empty" class="empty" hidden>You do not own any cards yet.</p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="nav.js"></script>
+  <script src="cards.js"></script>
+  <script src="cards-page.js"></script>
+</body>
+</html>
