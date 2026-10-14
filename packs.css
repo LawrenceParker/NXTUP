@@ -74,6 +74,35 @@
 
 .pack-desc { margin: 0; color: var(--muted); font-size: 0.95rem; }
 
+/* limited-time packs */
+.pack-limited {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pack);
+}
+
+.pack-limited::before {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-right: 0.6em;
+  background: var(--pack);
+  transform: rotate(45deg);
+  vertical-align: 0.05em;
+}
+
+.odds-label {
+  margin: 0.7rem 0 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
 .pack-cost {
   margin: 0;
   font-family: var(--display);
