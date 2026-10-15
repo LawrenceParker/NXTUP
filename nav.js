@@ -9,7 +9,8 @@
     { href: "index.html", label: "Home" },
     { href: "predictions.html", label: "Predictions" },
     { href: "packs.html", label: "Packs" },
-    { href: "collection.html", label: "Collection" },
+    { href: "cards.html", label: "Cards" },
+    { href: "collection.html", label: "My Collection" },
     { href: "market.html", label: "Marketplace" },
   ];
 

@@ -3,27 +3,54 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Collection - NXTUP</title>
+  <title>My Collection - NXTUP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="cards.css">
   <link rel="stylesheet" href="market.css">
+  <link rel="stylesheet" href="collection.css">
 </head>
 <body>
   <main class="page">
 
-    <h1 class="page-title">Your collection</h1>
-    <p id="summary" class="section-note"></p>
+    <h1 class="page-title">My Collection</h1>
+    <p class="section-note">Every card you pack or buy is checked off here, team by team. Fill them all.</p>
     <p id="status" class="status" role="status"></p>
 
-    <div class="actions">
-      <a class="btn btn-primary" href="packs.html" style="text-decoration:none">Open a pack</a>
-      <a class="btn btn-quiet" href="market.html" style="text-decoration:none">Marketplace</a>
+    <section id="overall" class="overall" hidden>
+      <div class="overall-top">
+        <span id="overall-count" class="overall-count"></span>
+        <span id="overall-pct" class="overall-pct"></span>
+      </div>
+      <div class="progress" role="progressbar" aria-label="Collection completion" aria-valuemin="0" aria-valuemax="100">
+        <div id="overall-fill" class="progress-fill"></div>
+      </div>
+      <p id="overall-teams" class="section-note"></p>
+    </section>
+
+    <div class="filters" id="filters" hidden>
+      <label class="field">Team
+        <select id="team-filter"><option value="">All teams</option></select>
+      </label>
+      <label class="field">Show
+        <select id="show-filter">
+          <option value="all">All cards</option>
+          <option value="missing">Missing</option>
+          <option value="collected">Collected</option>
+        </select>
+      </label>
     </div>
 
-    <ul id="collection" class="card-grid"></ul>
+    <div id="teams" class="teams"></div>
+    <p id="empty" class="empty" hidden></p>
+
+    <div class="actions">
+      <a class="btn btn-primary" href="packs.html">Open a pack</a>
+      <a class="btn btn-quiet" href="cards.html">Cards</a>
+      <a class="btn btn-quiet" href="market.html">Marketplace</a>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>

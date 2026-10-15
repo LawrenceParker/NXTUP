@@ -1,10 +1,21 @@
+// My Collection: every card in the game, grouped by team and card type.
+// Cards you have collected are shown in full; the rest are dimmed so you can
+// see what is left to chase. Teams show a progress bar and COMPLETE at 100%.
+
 const config = window.NXTUP_CONFIG || {};
 
 const els = {
   status: document.getElementById("status"),
-  points: document.getElementById("points"),
-  summary: document.getElementById("summary"),
-  collection: document.getElementById("collection"),
+  overall: document.getElementById("overall"),
+  overallCount: document.getElementById("overall-count"),
+  overallPct: document.getElementById("overall-pct"),
+  overallFill: document.getElementById("overall-fill"),
+  overallTeams: document.getElementById("overall-teams"),
+  filters: document.getElementById("filters"),
+  teamFilter: document.getElementById("team-filter"),
+  showFilter: document.getElementById("show-filter"),
+  teams: document.getElementById("teams"),
+  empty: document.getElementById("empty"),
 };
 
 function setStatus(message) {
@@ -19,14 +30,19 @@ function setStatusWithLink(message, href, linkText) {
   els.status.appendChild(a);
 }
 
-function formatRemaining(iso) {
-  const ms = new Date(iso) - new Date();
-  if (ms <= 0) return "ended";
-  const totalMinutes = Math.ceil(ms / 60000);
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  return h > 0 ? h + "h " + m + "m" : m + "m";
+// The database returns at most 1000 rows per request, so read in pages.
+async function fetchAll(makeQuery) {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await makeQuery().range(from, from + 999);
+    if (error) throw error;
+    rows.push(...data);
+    if (data.length < 1000) break;
+  }
+  return rows;
 }
+
+const percent = (done, total) => (total ? Math.floor((done / total) * 100) : 0);
 
 if (!window.supabase || !config.SUPABASE_URL || config.SUPABASE_URL.startsWith("PASTE")) {
   setStatus("Supabase is not set up. Check config.js.");
@@ -44,194 +60,221 @@ async function start() {
   }
   const userId = sessionData.session.user.id;
 
-  let owned = [];
-  let quickSellPercent = null;
-  let durations = [1];
-  let defaultHours = 1;
+  // ---- load everything ---------------------------------------------------------
 
-  async function load() {
-    const [profileRes, cardsRes, settingsRes] = await Promise.all([
-      client.from("profiles").select("points").eq("id", userId).single(),
-      client.from("my_cards").select("*"),
-      client
-        .from("settings")
-        .select("key, value")
-        .in("key", ["quick_sell_percent", "listing_durations_hours", "default_listing_hours"]),
-    ]);
+  const modeRes = await client.from("settings").select("value").eq("key", "collection_mode").maybeSingle();
+  const mode = modeRes.data && modeRes.data.value === "currently_owned" ? "currently_owned" : "ever_owned";
 
-    if (profileRes.data) els.points.textContent = profileRes.data.points.toLocaleString();
-    if (settingsRes.data) {
-      const s = Object.fromEntries(settingsRes.data.map((row) => [row.key, row.value]));
-      if (s.quick_sell_percent != null) quickSellPercent = Number(s.quick_sell_percent);
-      if (s.listing_durations_hours) {
-        const list = s.listing_durations_hours
-          .split(",")
-          .map((x) => Number(x.trim()))
-          .filter((n) => Number.isInteger(n) && n > 0);
-        if (list.length) durations = list;
-      }
-      if (s.default_listing_hours) defaultHours = Number(s.default_listing_hours);
+  const cards = await fetchAll(() =>
+    client
+      .from("cards_with_rarity")
+      .select("id, player, team, role, rating, rarity, rarity_color, rarity_order, region")
+      .order("id", { ascending: true })
+  );
+
+  const collected = new Set();
+  const ownedNow = () =>
+    fetchAll(() => client.from("my_cards").select("card_id").order("user_card_id", { ascending: true }));
+
+  if (mode === "currently_owned") {
+    (await ownedNow()).forEach((r) => collected.add(r.card_id));
+  } else {
+    try {
+      const rows = await fetchAll(() =>
+        client.from("collection_entries").select("card_id").eq("user_id", userId).order("card_id", { ascending: true })
+      );
+      rows.forEach((r) => collected.add(r.card_id));
+    } catch (err) {
+      // 13_collection.sql has not been run yet: fall back to what is owned now.
+      (await ownedNow()).forEach((r) => collected.add(r.card_id));
+      setStatus("Collection tracking is not set up yet (13_collection.sql), so this shows the cards you own right now.");
     }
-
-    if (cardsRes.error) {
-      setStatus("Could not load your cards: " + cardsRes.error.message);
-      return;
-    }
-    owned = cardsRes.data || [];
-    render();
   }
 
-  function quickSellValue(card) {
-    if (quickSellPercent == null || !card.min_price) return null;
-    return Math.round((card.min_price * quickSellPercent) / 100);
+  if (cards.length === 0) {
+    els.empty.textContent = "No cards have been added to the game yet.";
+    els.empty.hidden = false;
+    return;
   }
 
-  function buildFooter(group) {
-    const foot = document.createElement("div");
-    foot.className = "item-foot";
-    const card = group.card;
-    const unlisted = group.copies.filter((c) => !c.listing_id);
-    const listed = group.copies.filter((c) => c.listing_id);
+  // ---- group by team, then by card type ------------------------------------------
 
-    if (unlisted.length > 0 && card.min_price > 0) {
-      const sub = document.createElement("p");
-      sub.className = "price-sub";
-      sub.textContent = "Minimum price: " + card.min_price.toLocaleString() + " points";
+  const NO_TEAM = "No team";
+  const byTeam = new Map();
+  cards.forEach((c) => {
+    const name = c.team && c.team.trim() ? c.team.trim() : NO_TEAM;
+    if (!byTeam.has(name)) byTeam.set(name, []);
+    byTeam.get(name).push(c);
+  });
 
-      let hours = durations.includes(defaultHours) ? defaultHours : durations[0];
-      const tabs = document.createElement("div");
-      tabs.className = "tabs";
-      tabs.setAttribute("role", "radiogroup");
-      tabs.setAttribute("aria-label", "Listing length");
-      durations.forEach((h) => {
-        const tab = document.createElement("button");
-        tab.type = "button";
-        tab.className = "tab";
-        tab.textContent = h + (h === 1 ? " hr" : " hrs");
-        tab.setAttribute("role", "radio");
-        tab.setAttribute("aria-checked", String(h === hours));
-        tab.addEventListener("click", () => {
-          hours = h;
-          tabs.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-checked", String(t === tab)));
-        });
-        tabs.appendChild(tab);
+  const teams = [...byTeam.entries()]
+    .map(([name, list]) => {
+      const regions = list.map((c) => c.region).filter(Boolean);
+      const counts = {};
+      regions.forEach((r) => (counts[r] = (counts[r] || 0) + 1));
+      const region = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || "";
+
+      const groups = new Map();
+      list.forEach((c) => {
+        if (!groups.has(c.rarity)) groups.set(c.rarity, { rarity: c.rarity, order: c.rarity_order ?? 999, color: c.rarity_color, cards: [] });
+        groups.get(c.rarity).cards.push(c);
       });
+      const sortedGroups = [...groups.values()].sort((a, b) => a.order - b.order || String(a.rarity).localeCompare(String(b.rarity)));
+      sortedGroups.forEach((g) => g.cards.sort((a, b) => a.player.localeCompare(b.player)));
 
-      const row = document.createElement("div");
-      row.className = "row";
+      return { name, region, total: list.length, done: list.filter((c) => collected.has(c.id)).length, groups: sortedGroups };
+    })
+    .sort((a, b) => (a.name === NO_TEAM) - (b.name === NO_TEAM) || a.name.localeCompare(b.name));
 
-      const field = document.createElement("label");
-      field.className = "field";
-      field.textContent = "Your price";
-      const input = document.createElement("input");
-      input.type = "number";
-      input.min = card.min_price;
-      input.step = 1;
-      input.value = card.min_price;
-      field.appendChild(input);
+  // ---- overall progress --------------------------------------------------------------
 
-      const listBtn = document.createElement("button");
-      listBtn.type = "button";
-      listBtn.className = "btn btn-primary";
-      listBtn.textContent = "List";
-      listBtn.addEventListener("click", () => listCard(unlisted[0], Number(input.value), hours));
+  const totalCards = cards.length;
+  const doneCards = cards.filter((c) => collected.has(c.id)).length;
+  const doneTeams = teams.filter((t) => t.total > 0 && t.done === t.total).length;
 
-      row.append(field, listBtn);
-      foot.append(sub, tabs, row);
+  els.overallCount.textContent = doneCards.toLocaleString() + " / " + totalCards.toLocaleString() + " cards";
+  els.overallPct.textContent = percent(doneCards, totalCards) + "%";
+  els.overallFill.style.width = percent(doneCards, totalCards) + "%";
+  els.overallFill.classList.toggle("is-complete", doneCards === totalCards);
+  els.overallFill.parentElement.setAttribute("aria-valuenow", String(percent(doneCards, totalCards)));
+  els.overallTeams.textContent =
+    doneTeams.toLocaleString() + " of " + teams.length.toLocaleString() + " team" + (teams.length === 1 ? "" : "s") + " complete.";
+  els.overall.hidden = false;
 
-      const value = quickSellValue(card);
-      if (value != null) {
-        const quick = document.createElement("button");
-        quick.type = "button";
-        quick.className = "btn btn-quiet";
-        quick.textContent = "Quick sell for " + value.toLocaleString() + " points";
-        quick.addEventListener("click", () => quickSell(unlisted[0], value));
-        foot.appendChild(quick);
-      }
-    } else if (unlisted.length > 0) {
-      const note = document.createElement("p");
-      note.className = "price-sub";
-      note.textContent = "No minimum price is set for this rarity yet.";
-      foot.appendChild(note);
+  // ---- controls ---------------------------------------------------------------------------
+
+  teams.forEach((t) => els.teamFilter.appendChild(new Option(t.name, t.name)));
+  els.filters.hidden = false;
+
+  const openTeams = new Set();
+
+  // ---- drawing ----------------------------------------------------------------------------
+
+  function fillTeam(body, team) {
+    if (body.dataset.filled) return;
+    body.dataset.filled = "1";
+    const show = els.showFilter.value;
+
+    team.groups.forEach((group) => {
+      const shown = group.cards.filter((c) =>
+        show === "all" ? true : show === "collected" ? collected.has(c.id) : !collected.has(c.id)
+      );
+      if (shown.length === 0) return;
+
+      const doneInGroup = group.cards.filter((c) => collected.has(c.id)).length;
+      const head = document.createElement("h4");
+      head.className = "type-head";
+      if (group.color) head.style.setProperty("--rarity", group.color);
+      head.append(group.rarity || "Other");
+      const count = document.createElement("span");
+      count.className = "type-count";
+      count.textContent = doneInGroup + " / " + group.cards.length;
+      head.appendChild(count);
+
+      const grid = document.createElement("ul");
+      grid.className = "card-grid";
+      shown.forEach((c) => {
+        const li = document.createElement("li");
+        if (!collected.has(c.id)) {
+          li.className = "card-locked";
+          li.title = "Not collected yet";
+        }
+        li.appendChild(window.NXTUP_buildCard(c));
+        grid.appendChild(li);
+      });
+      body.append(head, grid);
+    });
+  }
+
+  function buildTeam(team) {
+    const details = document.createElement("details");
+    details.className = "team";
+    const complete = team.total > 0 && team.done === team.total;
+    if (complete) details.classList.add("is-complete");
+
+    const summary = document.createElement("summary");
+
+    const name = document.createElement("div");
+    name.className = "team-name";
+    const nameText = document.createElement("span");
+    nameText.className = "team-name-text";
+    nameText.textContent = team.name;
+    name.appendChild(nameText);
+    if (team.region) {
+      const region = document.createElement("span");
+      region.className = "team-region";
+      region.textContent = team.region;
+      name.appendChild(region);
     }
 
-    listed.forEach((copy) => {
-      const line = document.createElement("p");
-      line.className = "price";
-      line.textContent = "Listed for " + copy.listing_price.toLocaleString() + " points";
-      const left = document.createElement("p");
-      left.className = "price-sub";
-      left.textContent = "Ends in " + formatRemaining(copy.listing_expires_at);
-      foot.append(line, left);
+    const bar = document.createElement("div");
+    bar.className = "progress";
+    bar.setAttribute("role", "progressbar");
+    bar.setAttribute("aria-label", team.name + " completion");
+    bar.setAttribute("aria-valuemin", "0");
+    bar.setAttribute("aria-valuemax", "100");
+    bar.setAttribute("aria-valuenow", String(percent(team.done, team.total)));
+    const fill = document.createElement("div");
+    fill.className = "progress-fill" + (complete ? " is-complete" : "");
+    fill.style.width = percent(team.done, team.total) + "%";
+    bar.appendChild(fill);
+
+    const count = document.createElement("div");
+    count.className = "team-count";
+    if (complete) {
+      const badge = document.createElement("span");
+      badge.className = "team-complete";
+      badge.textContent = "COMPLETE";
+      count.appendChild(badge);
+    }
+    count.append(team.done + " / " + team.total);
+    const pct = document.createElement("span");
+    pct.className = "team-pct";
+    pct.textContent = percent(team.done, team.total) + "%";
+    count.appendChild(pct);
+
+    summary.append(name, bar, count);
+
+    const body = document.createElement("div");
+    body.className = "team-body";
+    details.append(summary, body);
+
+    details.addEventListener("toggle", () => {
+      if (details.open) {
+        openTeams.add(team.name);
+        fillTeam(body, team);
+      } else {
+        openTeams.delete(team.name);
+      }
     });
 
-    return foot;
+    if (openTeams.has(team.name)) {
+      details.open = true;
+      fillTeam(body, team);
+    }
+    return details;
   }
 
   function render() {
-    if (owned.length === 0) {
-      els.summary.textContent = "You do not own any cards yet.";
-      els.collection.replaceChildren();
-      return;
-    }
+    const show = els.showFilter.value;
+    const chosen = els.teamFilter.value;
+    if (chosen) openTeams.add(chosen);
 
-    const grouped = new Map();
-    for (const row of owned) {
-      const entry = grouped.get(row.card_id);
-      if (entry) entry.copies.push(row);
-      else grouped.set(row.card_id, { card: row, copies: [row] });
-    }
-
-    const groups = [...grouped.values()].sort(
-      (a, b) =>
-        (b.card.rarity_order ?? 0) - (a.card.rarity_order ?? 0) ||
-        (b.card.rating ?? 0) - (a.card.rating ?? 0) ||
-        a.card.player.localeCompare(b.card.player)
-    );
-
-    els.summary.textContent =
-      owned.length.toLocaleString() + " cards, " + groups.length.toLocaleString() + " different.";
-
-    els.collection.replaceChildren(
-      ...groups.map((group) => {
-        const li = document.createElement("li");
-        li.className = "item";
-        li.append(
-          window.NXTUP_buildCard(group.card, { count: group.copies.length }),
-          buildFooter(group)
-        );
-        return li;
-      })
-    );
-  }
-
-  async function listCard(copy, price, hours) {
-    setStatus("");
-    if (!Number.isInteger(price) || price < copy.min_price) {
-      setStatus("The price must be a whole number of at least " + copy.min_price.toLocaleString() + " points.");
-      return;
-    }
-    if (!window.confirm("List " + copy.player + " for " + price.toLocaleString() + " points for " + hours + (hours === 1 ? " hour" : " hours") + "? You cannot cancel a listing once it is placed.")) return;
-    const { error } = await client.rpc("list_card", {
-      p_user_card_id: copy.user_card_id,
-      p_price: price,
-      p_hours: hours,
+    const list = teams.filter((t) => {
+      if (chosen && t.name !== chosen) return false;
+      if (show === "collected") return t.done > 0;
+      if (show === "missing") return t.done < t.total;
+      return true;
     });
-    setStatus(
-      error
-        ? "Could not list this card: " + error.message
-        : "Listed " + copy.player + " for " + price.toLocaleString() + " points. It ends in " + hours + (hours === 1 ? " hour." : " hours.")
-    );
-    await load();
+
+    els.teams.replaceChildren(...list.map(buildTeam));
+    els.empty.hidden = list.length > 0;
+    els.empty.textContent =
+      show === "missing" ? "Nothing missing here. Every card is collected." : "No cards to show for this filter yet.";
   }
 
-  async function quickSell(copy, value) {
-    if (!window.confirm("Quick sell " + copy.player + " (" + copy.rarity + ") for " + value.toLocaleString() + " points? This cannot be undone.")) return;
-    setStatus("");
-    const { data, error } = await client.rpc("quick_sell", { p_user_card_id: copy.user_card_id });
-    setStatus(error ? "Could not quick sell: " + error.message : "Sold " + copy.player + " for " + Number(data).toLocaleString() + " points.");
-    await load();
-  }
+  els.teamFilter.addEventListener("change", render);
+  els.showFilter.addEventListener("change", render);
 
-  await load();
+  render();
 }
