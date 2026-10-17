@@ -7,7 +7,7 @@ const els = {
   status: document.getElementById("status"),
   summary: document.getElementById("summary"),
   filters: document.getElementById("filters"),
-  filterType: document.getElementById("filter-type"),
+  filterEvent: document.getElementById("filter-event"),
   sort: document.getElementById("sort"),
   cards: document.getElementById("cards"),
   empty: document.getElementById("empty"),
@@ -94,7 +94,7 @@ async function start() {
     }
 
     owned = rows;
-    buildTypeFilter();
+    buildEventFilter();
     render();
   }
 
@@ -103,14 +103,19 @@ async function start() {
     return Math.round((card.min_price * quickSellPercent) / 100);
   }
 
-  function buildTypeFilter() {
-    const current = els.filterType.value;
-    const types = new Map();
-    owned.forEach((c) => types.set(c.rarity, c.rarity_order ?? 0));
-    const names = [...types.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
-    els.filterType.replaceChildren(new Option("All types", ""));
-    names.forEach((name) => els.filterType.appendChild(new Option(name, name)));
-    els.filterType.value = names.includes(current) ? current : "";
+  function buildEventFilter() {
+    const current = els.filterEvent.value;
+    const events = [...new Set(owned.map((c) => c.event).filter(Boolean))].sort((a, b) =>
+      window.NXTUP_prettyEvent(a).localeCompare(window.NXTUP_prettyEvent(b))
+    );
+    els.filterEvent.replaceChildren(new Option("All events", ""));
+    events.forEach((e) => els.filterEvent.appendChild(new Option(window.NXTUP_prettyEvent(e), e)));
+    els.filterEvent.value = events.includes(current) ? current : "";
+  }
+
+  // "Brawk, Initiator, Kickoff, OVR 77" for the confirmation boxes
+  function describe(c) {
+    return [c.player, c.role, c.event_label, c.rating == null ? null : "OVR " + c.rating].filter(Boolean).join(", ");
   }
 
   // The controls under each card: list it, or quick sell it.
@@ -132,7 +137,7 @@ async function start() {
     if (!(copy.min_price > 0)) {
       const note = document.createElement("p");
       note.className = "price-sub";
-      note.textContent = "No minimum price is set for this type yet.";
+      note.textContent = "No minimum price is set for this tier yet.";
       foot.appendChild(note);
       return foot;
     }
@@ -194,16 +199,16 @@ async function start() {
   }
 
   function visibleCards() {
-    const rows = owned.filter((c) => !els.filterType.value || c.rarity === els.filterType.value);
+    const rows = owned.filter((c) => !els.filterEvent.value || c.event === els.filterEvent.value);
     const sorts = {
-      rarity: (a, b) =>
-        (b.rarity_order ?? 0) - (a.rarity_order ?? 0) ||
+      ovr: (a, b) =>
+        (b.rating ?? 0) - (a.rating ?? 0) ||
         a.player.localeCompare(b.player) ||
         a.user_card_id - b.user_card_id,
       newest: (a, b) => new Date(b.acquired_at) - new Date(a.acquired_at) || b.user_card_id - a.user_card_id,
-      name: (a, b) => a.player.localeCompare(b.player) || (b.rarity_order ?? 0) - (a.rarity_order ?? 0),
+      name: (a, b) => a.player.localeCompare(b.player) || (b.rating ?? 0) - (a.rating ?? 0),
     };
-    return rows.sort(sorts[els.sort.value] || sorts.rarity);
+    return rows.sort(sorts[els.sort.value] || sorts.ovr);
   }
 
   function render() {
@@ -234,7 +239,7 @@ async function start() {
     }
     if (
       !window.confirm(
-        "List " + copy.player + " (" + copy.rarity + ") for " + price.toLocaleString() + " points for " +
+        "List " + describe(copy) + " for " + price.toLocaleString() + " points for " +
           hours + (hours === 1 ? " hour" : " hours") + "? You cannot cancel a listing once it is placed."
       )
     )
@@ -253,14 +258,14 @@ async function start() {
   }
 
   async function quickSell(copy, value) {
-    if (!window.confirm("Quick sell " + copy.player + " (" + copy.rarity + ") for " + value.toLocaleString() + " points? This cannot be undone.")) return;
+    if (!window.confirm("Quick sell " + describe(copy) + " for " + value.toLocaleString() + " points? This cannot be undone.")) return;
     setStatus("");
     const { data, error } = await client.rpc("quick_sell", { p_user_card_id: copy.user_card_id });
     setStatus(error ? "Could not quick sell: " + error.message : "Sold " + copy.player + " for " + Number(data).toLocaleString() + " points.");
     await load();
   }
 
-  els.filterType.addEventListener("change", render);
+  els.filterEvent.addEventListener("change", render);
   els.sort.addEventListener("change", render);
 
   await load();

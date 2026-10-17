@@ -35,7 +35,7 @@
 
 .progress {
   height: 0.55rem;
-  background: var(--surface-2);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -160,8 +160,8 @@
 .type-head .type-count { color: var(--muted); font-family: var(--body); font-weight: 500; font-size: 0.9rem; letter-spacing: 0.04em; }
 
 /* a card you have not collected yet: the real card, dimmed, so you can see what to chase */
-.card-locked > .card-tpl { filter: grayscale(1) brightness(0.52); transition: filter 0.12s; }
-.card-locked:hover > .card-tpl { filter: grayscale(0.7) brightness(0.7); }
+.card-locked > .card-tpl { filter: grayscale(1) brightness(0.64); transition: filter 0.12s; }
+.card-locked:hover > .card-tpl { filter: grayscale(0.6) brightness(0.85); }
 
 @media (max-width: 44rem) {
   .team > summary {

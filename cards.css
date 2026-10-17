@@ -146,7 +146,7 @@
 .tpl-label {
   top: 3.2%;
   left: 3.6%;
-  max-width: 48%;
+  max-width: 60%;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: max(3.2cqw, 8px);
@@ -161,7 +161,7 @@
 .tpl-region {
   top: 3.2%;
   right: 3.6%;
-  max-width: 40%;
+  max-width: 33%;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: max(3.2cqw, 8px);
@@ -200,6 +200,49 @@
   top: 81.1%;
   font-size: calc(5.7cqw * var(--fit, 1));
   letter-spacing: 0.04em;
+}
+
+/* DEF  OVR  ATT, above the name */
+.tpl-stats {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 57.6%;
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 1fr;
+  align-items: end;
+  text-align: center;
+}
+
+.tpl-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1cqw;
+  line-height: 1;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+}
+
+.tpl-stat + .tpl-stat { border-left: 1px solid rgba(255, 255, 255, 0.16); }
+
+.tpl-stat b {
+  font-weight: 700;
+  font-size: 7.2cqw;
+  color: #fff;
+}
+
+.tpl-stat-main b {
+  font-size: 10.4cqw;
+  color: var(--chip, #fff);
+}
+
+.tpl-stat i {
+  font-style: normal;
+  font-family: "Barlow", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: max(2.5cqw, 7px);
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* the "x2" badge sits under the region so nothing overlaps */

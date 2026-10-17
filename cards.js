@@ -1,22 +1,27 @@
-// Shared by the packs, collection and marketplace pages.
+// Shared by the packs, cards, collection and marketplace pages.
 //
 // NXTUP_buildCard(card, { count }) returns one card element for a row with:
-//   player, team, region, rarity (the card type), rarity_color
+//   player, team, role, region, event, event_label, event_style,
+//   attack, defence, rating (the OVR), rarity (the OVR tier)
 //
 // Cards are drawn entirely in code as a shield, so no player photos or team
-// logos are needed. The artwork is generated from the card itself: every
-// player gets their own pattern, and the team's initials appear as a large
-// watermark. The look of each card type comes from its row in the rarities
-// table:
+// logos are needed. The artwork is generated from the card itself, so every
+// card gets its own pattern, with the team's initials (or the role) as a large
+// watermark.
+//
+// Layout: event name top-left, region top-right, then DEF  OVR  ATT above the
+// player name, with the role (and team, if known) under the name.
+//
+// The LOOK of a card comes from its event type, from the event_styles table:
 //   color         main colour (border, tag, artwork)
 //   color_2       optional second colour (the border becomes a gradient)
 //   name_color    colour of the player name (white if blank)
 //   flair         0 to 3: extra detail. 0 clean, 1 inner line and side marks,
 //                 2 adds a soft sheen, 3 adds light rays. Blank means 0.
 //   template_url  optional full-card image you designed by hand; it replaces
-//                 the generated artwork for that card type
-// The rarities table is read once; cards drawn before it arrives are
-// upgraded in place.
+//                 the generated artwork for that event type
+// (How RARE a card is comes from its OVR tier, not from its look.)
+// The styles are read once; cards drawn before they arrive are upgraded in place.
 
 (function () {
   const SVG_NS = "http://www.w3.org/2000/svg";
@@ -28,15 +33,16 @@
   const INNER_LINE = "M26 26 L692 26 L692 653.3 L514.1 792 L205.9 792 L26 653.2 Z";
 
   // Three emblem outlines; each card picks one from its seed.
+  // (Drawn higher up the card to leave room for the DEF / OVR / ATT row.)
   const CX = 359;
-  const CY = 292;
+  const CY = 262;
   const EMBLEMS = [
-    [[359, 92], [559, 292], [359, 492], [159, 292]], // diamond
-    [[359, 87], [537, 189.5], [537, 394.5], [359, 497], [181, 394.5], [181, 189.5]], // hexagon
-    [[169, 142], [509, 142], [549, 182], [549, 442], [209, 442], [169, 402]], // cut square
+    [[359, 72], [559, 272], [359, 472], [159, 272]], // diamond
+    [[359, 67], [537, 169.5], [537, 374.5], [359, 477], [181, 374.5], [181, 169.5]], // hexagon
+    [[169, 122], [509, 122], [549, 162], [549, 422], [209, 422], [169, 382]], // cut square
   ];
 
-  const info = new Map(); // card type name -> row from the rarities table
+  const info = new Map(); // event style name -> row from the event_styles table
   const waiting = new Set(); // cards drawn before the table arrived
   let loaded = false;
   let uidCount = 0;
@@ -105,6 +111,20 @@
     return (t.length <= 6 ? t : t.slice(0, 4)).toUpperCase();
   }
 
+  // Controller -> CON, Duelist -> DUE, Initiator -> INI, Sentinel -> SEN
+  function roleCode(role) {
+    return String(role || "").trim().slice(0, 3).toUpperCase();
+  }
+
+  // "Vct 2026 Americas Stage 1" -> "Americas Stage 1", "Valorant Masters London 2026" -> "Masters London"
+  window.NXTUP_prettyEvent = function (event) {
+    return String(event || "")
+      .replace(/^vct 2026 /i, "")
+      .replace(/^valorant /i, "")
+      .replace(/ 2026$/i, "")
+      .trim();
+  };
+
   function el(name, attrs, parent) {
     const node = document.createElementNS(SVG_NS, name);
     Object.keys(attrs || {}).forEach((k) => node.setAttribute(k, String(attrs[k])));
@@ -122,7 +142,7 @@
 
   function buildArt(card, meta, color, color2, flair) {
     const uid = "nxtup-" + ++uidCount;
-    const rnd = seeded([card.player, card.team, card.rarity].join("|"));
+    const rnd = seeded([card.player, card.role, card.event].join("|"));
     const range = (lo, hi) => lo + rnd() * (hi - lo);
     const accent2 = color2 || color;
 
@@ -142,7 +162,7 @@
     stop(bg, 0, mix(INK, color, 0.3));
     stop(bg, 1, mix(INK, color, 0.05));
 
-    const glow = el("radialGradient", { id: uid + "-glow", cx: 0.5, cy: 0.36, r: 0.46 }, defs);
+    const glow = el("radialGradient", { id: uid + "-glow", cx: 0.5, cy: 0.32, r: 0.46 }, defs);
     stop(glow, 0, color, 0.34);
     stop(glow, 1, color, 0);
 
@@ -196,8 +216,8 @@
       }
     }
 
-    // team initials as a large watermark
-    const mono = monogram(card.team);
+    // team initials (or the role, when the team is not known) as a large watermark
+    const mono = monogram(card.team) || roleCode(card.role);
     if (mono) {
       const size = Math.max(130, Math.min(300, 380 / (mono.length * 0.45)));
       const text = el(
@@ -239,9 +259,6 @@
     // dark fade so the name is always readable
     el("rect", { width: 718, height: 818, fill: "url(#" + uid + "-fade)" }, g);
 
-    // short slanted bar above the name
-    el("polygon", { points: points([[259, 592], [281, 580], [437, 580], [459, 592]]), fill: color }, g);
-
     // inner line and side marks (flair 1 and up)
     if (flair >= 1) {
       el("path", { d: INNER_LINE, fill: "none", stroke: color, "stroke-opacity": 0.4, "stroke-width": 2 }, g);
@@ -261,7 +278,7 @@
   function shieldCard(el_, card, meta) {
     el_.className = "card-tpl";
 
-    const color = validColor(meta.color || card.rarity_color, "#939393");
+    const color = validColor(meta.color, "#939393");
     const color2 = meta.color_2 ? validColor(meta.color_2, null) : null;
     const flair = Math.max(0, Math.min(3, parseInt(meta.flair, 10) || 0));
 
@@ -275,10 +292,10 @@
       el_.appendChild(buildArt(card, meta, color, color2, flair));
     }
 
-    // card type tag, top-left
+    // event, top-left (the short name, like "Stage 1")
     const label = document.createElement("span");
     label.className = "tpl-label";
-    label.textContent = card.rarity || "";
+    label.textContent = card.event_label || window.NXTUP_prettyEvent(card.event);
     label.style.setProperty("--chip", color);
     label.style.setProperty("--chip-ink", inkFor(color));
     el_.appendChild(label);
@@ -297,9 +314,30 @@
     name.textContent = card.player;
     if (meta.name_color) name.style.color = meta.name_color;
 
+    // role (and team, when known) under the name
     const team = document.createElement("span");
     team.className = "tpl-team";
-    team.textContent = card.team || "";
+    team.textContent = [card.team, card.role].filter(Boolean).join(" / ");
+
+    // DEF  OVR  ATT above the name
+    if (card.rating != null) {
+      const stats = document.createElement("div");
+      stats.className = "tpl-stats";
+      stats.style.setProperty("--chip", color);
+      [["", "DEF", card.defence], [" tpl-stat-main", "OVR", card.rating], ["", "ATT", card.attack]].forEach(
+        ([extra, label_, value]) => {
+          const stat = document.createElement("span");
+          stat.className = "tpl-stat" + extra;
+          const number = document.createElement("b");
+          number.textContent = value == null ? "-" : String(value);
+          const caption = document.createElement("i");
+          caption.textContent = label_;
+          stat.append(number, caption);
+          stats.appendChild(stat);
+        }
+      );
+      el_.appendChild(stats);
+    }
 
     el_.append(name, team);
 
@@ -325,10 +363,10 @@
     node._fit = null;
     node.replaceChildren();
 
-    shieldCard(node, card, info.get(card.rarity) || {});
+    shieldCard(node, card, info.get(card.event_style) || {});
     node.setAttribute(
       "aria-label",
-      [card.player, card.team, card.region, card.rarity].filter(Boolean).join(", ")
+      [card.player, card.role, card.event_label, card.region, card.rating == null ? "" : "OVR " + card.rating].filter(Boolean).join(", ")
     );
 
     if (opts.count && opts.count > 1) {
@@ -356,10 +394,10 @@
       return;
     }
     client
-      .from("rarities")
-      .select("name, color, color_2, name_color, flair, template_url")
+      .from("event_styles")
+      .select("style, color, color_2, name_color, flair, template_url")
       .then(({ data, error }) => {
-        if (!error && data) data.forEach((r) => info.set(r.name, r));
+        if (!error && data) data.forEach((r) => info.set(r.style, r));
         loaded = true;
         waiting.forEach(render);
         waiting.clear();

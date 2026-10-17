@@ -93,7 +93,7 @@ async function start() {
       ending: (a, b) => new Date(a.expires_at) - new Date(b.expires_at),
       "price-asc": (a, b) => a.price - b.price,
       "price-desc": (a, b) => b.price - a.price,
-      rarity: (a, b) => (b.rarity_order ?? 0) - (a.rarity_order ?? 0) || (b.rating ?? 0) - (a.rating ?? 0),
+      ovr: (a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.rarity_order ?? 0) - (a.rarity_order ?? 0),
     };
     return rows.sort(sorts[els.sort.value] || sorts.newest);
   }
@@ -149,7 +149,7 @@ async function start() {
   }
 
   async function buy(l) {
-    if (!window.confirm("Buy " + l.player + " (" + l.rarity + ") for " + l.price.toLocaleString() + " points?")) return;
+    if (!window.confirm("Buy " + [l.player, l.role, l.event_label, l.rating == null ? null : "OVR " + l.rating].filter(Boolean).join(", ") + " for " + l.price.toLocaleString() + " points?")) return;
     setStatus("");
     const { error } = await client.rpc("buy_listing", { p_listing_id: l.listing_id });
     if (error) setStatus("Could not buy this card: " + error.message);

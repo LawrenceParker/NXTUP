@@ -1,6 +1,8 @@
-// My Collection: every card in the game, grouped by team and card type.
+// My Collection: every card in the game, grouped into sections with a progress
+// bar each. Sections are teams when the cards have teams, otherwise events.
+// Inside a team the cards are grouped by event; inside an event, by role.
 // Cards you have collected are shown in full; the rest are dimmed so you can
-// see what is left to chase. Teams show a progress bar and COMPLETE at 100%.
+// see what is left to chase. A section shows COMPLETE at 100%.
 
 const config = window.NXTUP_CONFIG || {};
 
@@ -13,6 +15,7 @@ const els = {
   overallTeams: document.getElementById("overall-teams"),
   filters: document.getElementById("filters"),
   teamFilter: document.getElementById("team-filter"),
+  intro: document.getElementById("intro"),
   showFilter: document.getElementById("show-filter"),
   teams: document.getElementById("teams"),
   empty: document.getElementById("empty"),
@@ -68,9 +71,12 @@ async function start() {
   const cards = await fetchAll(() =>
     client
       .from("cards_with_rarity")
-      .select("id, player, team, role, rating, rarity, rarity_color, rarity_order, region")
+      .select("id, player, team, role, rating, attack, defence, rarity, rarity_color, rarity_order, region, event, event_label, event_style, event_order")
       .order("id", { ascending: true })
   );
+
+  const stylesRes = await client.from("event_styles").select("style, color");
+  const styleColor = new Map((stylesRes.data || []).map((r) => [r.style, r.color]));
 
   const collected = new Set();
   const ownedNow = () =>
@@ -97,34 +103,53 @@ async function start() {
     return;
   }
 
-  // ---- group by team, then by card type ------------------------------------------
+  // ---- group the cards ------------------------------------------------------------
+  // With team data: one section per team, cards grouped by event.
+  // Without it:     one section per event, cards grouped by role.
 
-  const NO_TEAM = "No team";
-  const byTeam = new Map();
+  const pretty = (e) => window.NXTUP_prettyEvent(e) || "No event";
+  const hasTeams = cards.filter((c) => c.team && c.team.trim()).length > cards.length / 2;
+
+  const sectionName = (c) => (hasTeams ? (c.team && c.team.trim()) || "No team" : pretty(c.event));
+  const sectionOrder = (c) => (hasTeams ? 0 : c.event_order ?? 999);
+  const groupName = (c) => (hasTeams ? pretty(c.event) : c.role || "Other");
+  const groupOrder = (c) => (hasTeams ? c.event_order ?? 999 : 0);
+  const groupColor = (c) => (hasTeams ? styleColor.get(c.event_style) || null : null);
+
+  const bySection = new Map();
   cards.forEach((c) => {
-    const name = c.team && c.team.trim() ? c.team.trim() : NO_TEAM;
-    if (!byTeam.has(name)) byTeam.set(name, []);
-    byTeam.get(name).push(c);
+    const name = sectionName(c);
+    if (!bySection.has(name)) bySection.set(name, { name, order: sectionOrder(c), list: [] });
+    bySection.get(name).list.push(c);
   });
 
-  const teams = [...byTeam.entries()]
-    .map(([name, list]) => {
-      const regions = list.map((c) => c.region).filter(Boolean);
-      const counts = {};
-      regions.forEach((r) => (counts[r] = (counts[r] || 0) + 1));
-      const region = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || "";
+  const teams = [...bySection.values()]
+    .map(({ name, order, list }) => {
+      let region = "";
+      if (hasTeams) {
+        const counts = {};
+        list.forEach((c) => c.region && (counts[c.region] = (counts[c.region] || 0) + 1));
+        region = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || "";
+      }
 
       const groups = new Map();
       list.forEach((c) => {
-        if (!groups.has(c.rarity)) groups.set(c.rarity, { rarity: c.rarity, order: c.rarity_order ?? 999, color: c.rarity_color, cards: [] });
-        groups.get(c.rarity).cards.push(c);
+        const gname = groupName(c);
+        if (!groups.has(gname)) groups.set(gname, { rarity: gname, order: groupOrder(c), color: groupColor(c), cards: [] });
+        groups.get(gname).cards.push(c);
       });
       const sortedGroups = [...groups.values()].sort((a, b) => a.order - b.order || String(a.rarity).localeCompare(String(b.rarity)));
-      sortedGroups.forEach((g) => g.cards.sort((a, b) => a.player.localeCompare(b.player)));
+      sortedGroups.forEach((g) => g.cards.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || a.player.localeCompare(b.player)));
 
-      return { name, region, total: list.length, done: list.filter((c) => collected.has(c.id)).length, groups: sortedGroups };
+      return { name, order, region, total: list.length, done: list.filter((c) => collected.has(c.id)).length, groups: sortedGroups };
     })
-    .sort((a, b) => (a.name === NO_TEAM) - (b.name === NO_TEAM) || a.name.localeCompare(b.name));
+    .sort((a, b) => a.order - b.order || (a.name === "No team") - (b.name === "No team") || a.name.localeCompare(b.name));
+
+  if (!hasTeams) {
+    els.intro.textContent = "Every card you pack or buy is checked off here, event by event. Fill them all.";
+    els.teamFilter.previousSibling.textContent = "Event ";
+    els.teamFilter.options[0].text = "All events";
+  }
 
   // ---- overall progress --------------------------------------------------------------
 
@@ -137,8 +162,9 @@ async function start() {
   els.overallFill.style.width = percent(doneCards, totalCards) + "%";
   els.overallFill.classList.toggle("is-complete", doneCards === totalCards);
   els.overallFill.parentElement.setAttribute("aria-valuenow", String(percent(doneCards, totalCards)));
+  const unit = hasTeams ? "team" : "event";
   els.overallTeams.textContent =
-    doneTeams.toLocaleString() + " of " + teams.length.toLocaleString() + " team" + (teams.length === 1 ? "" : "s") + " complete.";
+    doneTeams.toLocaleString() + " of " + teams.length.toLocaleString() + " " + unit + (teams.length === 1 ? "" : "s") + " complete.";
   els.overall.hidden = false;
 
   // ---- controls ---------------------------------------------------------------------------
