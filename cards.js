@@ -9,8 +9,13 @@
 // card gets its own pattern, with the team's initials (or the role) as a large
 // watermark.
 //
-// Layout: event name top-left, region top-right, then DEF  OVR  ATT above the
-// player name, with the role (and team, if known) under the name.
+// Layout: event name top-left, region top-right, then ATT  OVR  DEF above the
+// player name, with the team under the name (the role if the team is not
+// known). The full role name is the large watermark behind the artwork.
+//
+// A higher OVR tier makes the card more visible: low tiers are slightly muted
+// (dimmer artwork and border), high tiers are full strength, and the top
+// three tiers add a soft glow around the shield.
 //
 // The LOOK of a card comes from its event type, from the event_styles table:
 //   color         main colour (border, tag, artwork)
@@ -46,6 +51,19 @@
   const waiting = new Set(); // cards drawn before the table arrived
   let loaded = false;
   let uidCount = 0;
+  let lowTier = 0; // lowest and highest tier sort_order from the rarities table
+  let topTier = 0;
+
+  // 0 for the lowest tier, 1 for the highest (0.5 while tiers are not known)
+  function powerOf(card) {
+    if (card.rarity_order == null || topTier <= lowTier) return 0.5;
+    return Math.max(0, Math.min(1, (card.rarity_order - lowTier) / (topTier - lowTier)));
+  }
+
+  function rgba(hex, alpha) {
+    const c = parseHex(hex) || [147, 147, 147];
+    return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + alpha.toFixed(2) + ")";
+  }
 
   // Shrinks a long name so it always fits inside the card.
   const fitObserver =
@@ -101,21 +119,6 @@
     };
   }
 
-  // "NRG" stays NRG, "Fnatic" stays FNATIC, "Team Vitality" becomes TV,
-  // "Gen.G" becomes GG, and a long single word is cut to 4 letters.
-  function monogram(team) {
-    const t = String(team || "").trim();
-    if (!t) return "";
-    const words = t.split(/[\s._-]+/).filter(Boolean);
-    if (words.length >= 2) return words.slice(0, 4).map((w) => w[0]).join("").toUpperCase();
-    return (t.length <= 6 ? t : t.slice(0, 4)).toUpperCase();
-  }
-
-  // Controller -> CON, Duelist -> DUE, Initiator -> INI, Sentinel -> SEN
-  function roleCode(role) {
-    return String(role || "").trim().slice(0, 3).toUpperCase();
-  }
-
   // "Vct 2026 Americas Stage 1" -> "Americas Stage 1", "Valorant Masters London 2026" -> "Masters London"
   window.NXTUP_prettyEvent = function (event) {
     return String(event || "")
@@ -140,11 +143,17 @@
 
   // ---- the artwork ----------------------------------------------------------
 
-  function buildArt(card, meta, color, color2, flair) {
+  function buildArt(card, meta, color, color2, flair, power) {
     const uid = "nxtup-" + ++uidCount;
     const rnd = seeded([card.player, card.role, card.event].join("|"));
     const range = (lo, hi) => lo + rnd() * (hi - lo);
     const accent2 = color2 || color;
+    // k: 0.55 for the lowest tier up to 1.15 for the highest. Scales how strong
+    // the artwork is. The border of low tiers is also dimmed towards the dark.
+    const k = 0.55 + 0.6 * power;
+    const dim = (1 - power) * 0.45;
+    const edge1 = mix(color, INK, dim);
+    const edge2 = color2 ? mix(color2, INK, dim) : null;
 
     const svg = el("svg", {
       class: "tpl-art",
@@ -159,11 +168,11 @@
     el("path", { d: SHIELD }, clip);
 
     const bg = el("linearGradient", { id: uid + "-bg", x1: 0, y1: 0, x2: 0.35, y2: 1 }, defs);
-    stop(bg, 0, mix(INK, color, 0.3));
-    stop(bg, 1, mix(INK, color, 0.05));
+    stop(bg, 0, mix(INK, color, 0.3 * k));
+    stop(bg, 1, mix(INK, color, 0.05 * k));
 
     const glow = el("radialGradient", { id: uid + "-glow", cx: 0.5, cy: 0.32, r: 0.46 }, defs);
-    stop(glow, 0, color, 0.34);
+    stop(glow, 0, color, 0.34 * k);
     stop(glow, 1, color, 0);
 
     const fade = el("linearGradient", { id: uid + "-fade", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
@@ -175,13 +184,13 @@
       { id: uid + "-hatch", width: 16, height: 16, patternUnits: "userSpaceOnUse", patternTransform: "rotate(35)" },
       defs
     );
-    el("line", { x1: 0, y1: 0, x2: 0, y2: 16, stroke: color, "stroke-opacity": 0.13, "stroke-width": 2 }, hatch);
+    el("line", { x1: 0, y1: 0, x2: 0, y2: 16, stroke: color, "stroke-opacity": 0.13 * k, "stroke-width": 2 }, hatch);
 
     const ringFill = color2 ? uid + "-edge" : null;
     if (ringFill) {
       const edge = el("linearGradient", { id: ringFill, x1: 0, y1: 0, x2: 1, y2: 1 }, defs);
-      stop(edge, 0, color);
-      stop(edge, 1, color2);
+      stop(edge, 0, edge1);
+      stop(edge, 1, edge2);
     }
 
     const g = el("g", { "clip-path": "url(#" + uid + "-clip)" }, svg);
@@ -199,7 +208,7 @@
         {
           points: points([[x0, 0], [x0 + w, 0], [x0 + w - skew, 720], [x0 - skew, 720]]),
           fill: i === 1 ? accent2 : color,
-          "fill-opacity": range(0.07, 0.2).toFixed(3),
+          "fill-opacity": (range(0.07, 0.2) * k).toFixed(3),
         },
         g
       );
@@ -209,17 +218,17 @@
 
     // light rays behind the emblem (flair 3)
     if (flair >= 3) {
-      const rays = el("g", { stroke: color, "stroke-opacity": 0.16, "stroke-width": 2 }, g);
+      const rays = el("g", { stroke: color, "stroke-opacity": 0.16 * k, "stroke-width": 2 }, g);
       for (let k = 0; k < 18; k++) {
         const a = (k * Math.PI * 2) / 18 + range(-0.02, 0.02);
         el("line", { x1: CX, y1: CY, x2: CX + Math.cos(a) * 900, y2: CY + Math.sin(a) * 900 }, rays);
       }
     }
 
-    // team initials (or the role, when the team is not known) as a large watermark
-    const mono = monogram(card.team) || roleCode(card.role);
+    // the full role name (CONTROLLER, DUELIST ...) as a large watermark
+    const mono = String(card.role || "").trim().toUpperCase();
     if (mono) {
-      const size = Math.max(130, Math.min(300, 380 / (mono.length * 0.45)));
+      const size = Math.max(110, Math.min(200, 520 / (mono.length * 0.45)));
       const text = el(
         "text",
         {
@@ -231,9 +240,9 @@
           "font-weight": 700,
           "font-size": size,
           fill: color,
-          "fill-opacity": 0.1,
+          "fill-opacity": 0.1 * k,
           stroke: color,
-          "stroke-opacity": 0.35,
+          "stroke-opacity": 0.35 * k,
           "stroke-width": 2,
         },
         g
@@ -243,15 +252,15 @@
 
     // emblem: one outline, picked per card, drawn twice
     const shape = EMBLEMS[Math.floor(rnd() * EMBLEMS.length)];
-    el("polygon", { points: points(shape), fill: "none", stroke: color, "stroke-opacity": 0.75, "stroke-width": 3, "stroke-linejoin": "round" }, g);
+    el("polygon", { points: points(shape), fill: "none", stroke: color, "stroke-opacity": Math.min(1, 0.75 * k), "stroke-width": 3, "stroke-linejoin": "round" }, g);
     const inner = shape.map(([x, y]) => [CX + (x - CX) * 0.78, CY + (y - CY) * 0.78]);
-    el("polygon", { points: points(inner), fill: color, "fill-opacity": 0.07, stroke: accent2, "stroke-opacity": 0.4, "stroke-width": 2, "stroke-linejoin": "round" }, g);
+    el("polygon", { points: points(inner), fill: color, "fill-opacity": 0.07 * k, stroke: accent2, "stroke-opacity": 0.4 * k, "stroke-width": 2, "stroke-linejoin": "round" }, g);
 
     // soft diagonal sheen (flair 2 and up)
     if (flair >= 2) {
       const sheen = el("linearGradient", { id: uid + "-sheen", x1: 0, y1: 0, x2: 1, y2: 0 }, defs);
       stop(sheen, 0, "#fff", 0);
-      stop(sheen, 0.5, "#fff", 0.1);
+      stop(sheen, 0.5, "#fff", 0.1 * k);
       stop(sheen, 1, "#fff", 0);
       el("polygon", { points: points([[330, 0], [520, 0], [150, 818], [-40, 818]]), fill: "url(#" + uid + "-sheen)" }, g);
     }
@@ -261,14 +270,20 @@
 
     // inner line and side marks (flair 1 and up)
     if (flair >= 1) {
-      el("path", { d: INNER_LINE, fill: "none", stroke: color, "stroke-opacity": 0.4, "stroke-width": 2 }, g);
+      el("path", { d: INNER_LINE, fill: "none", stroke: color, "stroke-opacity": 0.4 * k, "stroke-width": 2 }, g);
       [[26, 340], [692, 340]].forEach(([x, y]) => {
-        el("polygon", { points: points([[x, y - 11], [x + 11, y], [x, y + 11], [x - 11, y]]), fill: color }, g);
+        el("polygon", { points: points([[x, y - 11], [x + 11, y], [x, y + 11], [x - 11, y]]), fill: edge1 }, g);
       });
     }
 
     // border on top
-    el("path", { d: RING, "fill-rule": "evenodd", fill: ringFill ? "url(#" + ringFill + ")" : color }, svg);
+    el("path", { d: RING, "fill-rule": "evenodd", fill: ringFill ? "url(#" + ringFill + ")" : edge1 }, svg);
+
+    // the top three tiers get a soft glow around the whole shield
+    if (power >= 0.6) {
+      const t = (power - 0.6) / 0.4; // 0 at the first glowing tier, 1 at the top
+      svg.style.filter = "drop-shadow(0 0 " + (3 + 9 * t).toFixed(1) + "px " + rgba(color, 0.35 + 0.25 * t) + ")";
+    }
 
     return svg;
   }
@@ -289,7 +304,7 @@
       img.alt = "";
       el_.appendChild(img);
     } else {
-      el_.appendChild(buildArt(card, meta, color, color2, flair));
+      el_.appendChild(buildArt(card, meta, color, color2, flair, powerOf(card)));
     }
 
     // event, top-left (the short name, like "Stage 1")
@@ -314,17 +329,17 @@
     name.textContent = card.player;
     if (meta.name_color) name.style.color = meta.name_color;
 
-    // role (and team, when known) under the name
+    // the team under the name (the role when the team is not known)
     const team = document.createElement("span");
     team.className = "tpl-team";
-    team.textContent = [card.team, card.role].filter(Boolean).join(" / ");
+    team.textContent = card.team || card.role || "";
 
-    // DEF  OVR  ATT above the name
+    // ATT  OVR  DEF above the name
     if (card.rating != null) {
       const stats = document.createElement("div");
       stats.className = "tpl-stats";
       stats.style.setProperty("--chip", color);
-      [["", "DEF", card.defence], [" tpl-stat-main", "OVR", card.rating], ["", "ATT", card.attack]].forEach(
+      [["", "ATT", card.attack], [" tpl-stat-main", "OVR", card.rating], ["", "DEF", card.defence]].forEach(
         ([extra, label_, value]) => {
           const stat = document.createElement("span");
           stat.className = "tpl-stat" + extra;
@@ -366,7 +381,7 @@
     shieldCard(node, card, info.get(card.event_style) || {});
     node.setAttribute(
       "aria-label",
-      [card.player, card.role, card.event_label, card.region, card.rating == null ? "" : "OVR " + card.rating].filter(Boolean).join(", ")
+      [card.player, card.team, card.role, card.event_label, card.region, card.rating == null ? "" : "OVR " + card.rating].filter(Boolean).join(", ")
     );
 
     if (opts.count && opts.count > 1) {
@@ -386,18 +401,26 @@
     return node;
   };
 
-  // Read the card type styles once.
+  // Read the event styles and the tier range once.
   function load() {
     const client = window.NXTUP_client;
     if (!client) {
       loaded = true;
       return;
     }
-    client
-      .from("event_styles")
-      .select("style, color, color_2, name_color, flair, template_url")
-      .then(({ data, error }) => {
-        if (!error && data) data.forEach((r) => info.set(r.style, r));
+    Promise.all([
+      client.from("event_styles").select("style, color, color_2, name_color, flair, template_url").then((r) => r),
+      client.from("rarities").select("sort_order").then((r) => r),
+    ])
+      .then(([styles, tiers]) => {
+        if (!styles.error && styles.data) styles.data.forEach((r) => info.set(r.style, r));
+        if (!tiers.error && tiers.data && tiers.data.length) {
+          const orders = tiers.data.map((t) => t.sort_order).filter((n) => n != null);
+          if (orders.length) {
+            lowTier = Math.min(...orders);
+            topTier = Math.max(...orders);
+          }
+        }
         loaded = true;
         waiting.forEach(render);
         waiting.clear();
