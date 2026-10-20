@@ -205,9 +205,9 @@
 /* DEF  OVR  ATT, above the name */
 .tpl-stats {
   position: absolute;
-  left: 14%;
-  right: 14%;
-  top: 57.6%;
+  left: 10%;
+  right: 10%;
+  top: 58%;
   display: grid;
   grid-template-columns: 1fr 1.3fr 1fr;
   align-items: end;
@@ -227,12 +227,12 @@
 
 .tpl-stat b {
   font-weight: 700;
-  font-size: 7.2cqw;
+  font-size: 6.4cqw;
   color: #fff;
 }
 
 .tpl-stat-main b {
-  font-size: 10.4cqw;
+  font-size: 9cqw;
   color: var(--chip, #fff);
 }
 

@@ -2,7 +2,7 @@
 //
 // NXTUP_buildCard(card, { count }) returns one card element for a row with:
 //   player, team, role, region, event, event_label, event_style,
-//   attack, defence, rating (the OVR), rarity (the OVR tier)
+//   attack, defence, rating (the OVR, a decimal like 1.87)
 //
 // Cards are drawn entirely in code as a shield, so no player photos or team
 // logos are needed. The artwork is generated from the card itself, so every
@@ -13,9 +13,10 @@
 // player name, with the team under the name (the role if the team is not
 // known). The full role name is the large watermark behind the artwork.
 //
-// A higher OVR tier makes the card more visible: low tiers are slightly muted
-// (dimmer artwork and border), high tiers are full strength, and the top
-// three tiers add a soft glow around the shield.
+// A higher OVR makes the card more visible: low ratings are slightly muted
+// (dimmer artwork and border), high ratings are full strength, and the top
+// ratings add a soft glow around the shield. The rating range comes from the
+// ovr_low and ovr_high settings, which import_cards() keeps up to date.
 //
 // The LOOK of a card comes from its event type, from the event_styles table:
 //   color         main colour (border, tag, artwork)
@@ -23,9 +24,11 @@
 //   name_color    colour of the player name (white if blank)
 //   flair         0 to 3: extra detail. 0 clean, 1 inner line and side marks,
 //                 2 adds a soft sheen, 3 adds light rays. Blank means 0.
+//   dark          0 to 1: how black the background is (0 = tinted by the colour,
+//                 1 = nearly black). Used for the MVP cards. Blank means 0.
 //   template_url  optional full-card image you designed by hand; it replaces
 //                 the generated artwork for that event type
-// (How RARE a card is comes from its OVR tier, not from its look.)
+// (How RARE a card is comes from the event type's drop_weight, not from its look.)
 // The styles are read once; cards drawn before they arrive are upgraded in place.
 
 (function () {
@@ -51,14 +54,22 @@
   const waiting = new Set(); // cards drawn before the table arrived
   let loaded = false;
   let uidCount = 0;
-  let lowTier = 0; // lowest and highest tier sort_order from the rarities table
-  let topTier = 0;
+  let ovrLow = null; // the rating range, from the settings table
+  let ovrHigh = null;
 
-  // 0 for the lowest tier, 1 for the highest (0.5 while tiers are not known)
+  // 0 for the lowest ratings up to 1 for the highest (0.5 while not known)
   function powerOf(card) {
-    if (card.rarity_order == null || topTier <= lowTier) return 0.5;
-    return Math.max(0, Math.min(1, (card.rarity_order - lowTier) / (topTier - lowTier)));
+    const v = Number(card.rating);
+    if (card.rating == null || Number.isNaN(v) || ovrLow == null || ovrHigh == null || ovrHigh <= ovrLow) return 0.5;
+    return Math.max(0, Math.min(1, (v - ovrLow) / (ovrHigh - ovrLow)));
   }
+
+  // 1.8 -> "1.80", null -> "-"
+  function fmt(value) {
+    const n = Number(value);
+    return value == null || Number.isNaN(n) ? "-" : n.toFixed(2);
+  }
+  window.NXTUP_formatRating = fmt;
 
   function rgba(hex, alpha) {
     const c = parseHex(hex) || [147, 147, 147];
@@ -119,12 +130,13 @@
     };
   }
 
-  // "Vct 2026 Americas Stage 1" -> "Americas Stage 1", "Valorant Masters London 2026" -> "Masters London"
+  // "Vct 2026 Americas Stage 1" -> "Americas Stage 1", "Valorant Masters London 2026 MVP" -> "Masters London MVP"
   window.NXTUP_prettyEvent = function (event) {
     return String(event || "")
       .replace(/^vct 2026 /i, "")
       .replace(/^valorant /i, "")
-      .replace(/ 2026$/i, "")
+      .replace(/ 2026\b/i, "")
+      .replace(/\bemea\b/i, "EMEA")
       .trim();
   };
 
@@ -143,7 +155,7 @@
 
   // ---- the artwork ----------------------------------------------------------
 
-  function buildArt(card, meta, color, color2, flair, power) {
+  function buildArt(card, meta, color, color2, flair, power, dark) {
     const uid = "nxtup-" + ++uidCount;
     const rnd = seeded([card.player, card.role, card.event].join("|"));
     const range = (lo, hi) => lo + rnd() * (hi - lo);
@@ -168,8 +180,16 @@
     el("path", { d: SHIELD }, clip);
 
     const bg = el("linearGradient", { id: uid + "-bg", x1: 0, y1: 0, x2: 0.35, y2: 1 }, defs);
-    stop(bg, 0, mix(INK, color, 0.3 * k));
-    stop(bg, 1, mix(INK, color, 0.05 * k));
+    if (dark > 0) {
+      // black card with the colour rising through the middle (MVP style)
+      const black = mix(INK, "#000000", 0.7);
+      stop(bg, 0, mix(INK, "#000000", 0.5 * dark));
+      stop(bg, 0.5, mix(black, color, (0.16 + 0.26 * (1 - dark)) * k * 1.6));
+      stop(bg, 1, black);
+    } else {
+      stop(bg, 0, mix(INK, color, 0.3 * k));
+      stop(bg, 1, mix(INK, color, 0.05 * k));
+    }
 
     const glow = el("radialGradient", { id: uid + "-glow", cx: 0.5, cy: 0.32, r: 0.46 }, defs);
     stop(glow, 0, color, 0.34 * k);
@@ -208,7 +228,7 @@
         {
           points: points([[x0, 0], [x0 + w, 0], [x0 + w - skew, 720], [x0 - skew, 720]]),
           fill: i === 1 ? accent2 : color,
-          "fill-opacity": (range(0.07, 0.2) * k).toFixed(3),
+          "fill-opacity": (range(0.07, 0.2) * k * (1 - 0.45 * dark)).toFixed(3),
         },
         g
       );
@@ -304,7 +324,7 @@
       img.alt = "";
       el_.appendChild(img);
     } else {
-      el_.appendChild(buildArt(card, meta, color, color2, flair, powerOf(card)));
+      el_.appendChild(buildArt(card, meta, color, color2, flair, powerOf(card), Math.max(0, Math.min(1, Number(meta.dark) || 0))));
     }
 
     // event, top-left (the short name, like "Stage 1")
@@ -344,7 +364,7 @@
           const stat = document.createElement("span");
           stat.className = "tpl-stat" + extra;
           const number = document.createElement("b");
-          number.textContent = value == null ? "-" : String(value);
+          number.textContent = fmt(value);
           const caption = document.createElement("i");
           caption.textContent = label_;
           stat.append(number, caption);
@@ -381,7 +401,7 @@
     shieldCard(node, card, info.get(card.event_style) || {});
     node.setAttribute(
       "aria-label",
-      [card.player, card.team, card.role, card.event_label, card.region, card.rating == null ? "" : "OVR " + card.rating].filter(Boolean).join(", ")
+      [card.player, card.team, card.role, card.event_label, card.region, card.rating == null ? "" : "OVR " + fmt(card.rating)].filter(Boolean).join(", ")
     );
 
     if (opts.count && opts.count > 1) {
@@ -401,7 +421,7 @@
     return node;
   };
 
-  // Read the event styles and the tier range once.
+  // Read the event styles and the rating range once.
   function load() {
     const client = window.NXTUP_client;
     if (!client) {
@@ -409,16 +429,16 @@
       return;
     }
     Promise.all([
-      client.from("event_styles").select("style, color, color_2, name_color, flair, template_url").then((r) => r),
-      client.from("rarities").select("sort_order").then((r) => r),
+      client.from("event_styles").select("style, color, color_2, name_color, flair, dark, template_url").then((r) => r),
+      client.from("settings").select("key, value").in("key", ["ovr_low", "ovr_high"]).then((r) => r),
     ])
-      .then(([styles, tiers]) => {
+      .then(([styles, settings]) => {
         if (!styles.error && styles.data) styles.data.forEach((r) => info.set(r.style, r));
-        if (!tiers.error && tiers.data && tiers.data.length) {
-          const orders = tiers.data.map((t) => t.sort_order).filter((n) => n != null);
-          if (orders.length) {
-            lowTier = Math.min(...orders);
-            topTier = Math.max(...orders);
+        if (!settings.error && settings.data) {
+          const v = Object.fromEntries(settings.data.map((r) => [r.key, Number(r.value)]));
+          if (!Number.isNaN(v.ovr_low) && !Number.isNaN(v.ovr_high)) {
+            ovrLow = v.ovr_low;
+            ovrHigh = v.ovr_high;
           }
         }
         loaded = true;

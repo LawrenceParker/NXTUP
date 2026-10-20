@@ -115,7 +115,7 @@ async function start() {
 
   // "Brawk, Initiator, Kickoff, OVR 77" for the confirmation boxes
   function describe(c) {
-    return [c.player, c.role, c.event_label, c.rating == null ? null : "OVR " + c.rating].filter(Boolean).join(", ");
+    return [c.player, c.role, c.event_label, c.rating == null ? null : "OVR " + window.NXTUP_formatRating(c.rating)].filter(Boolean).join(", ");
   }
 
   // The controls under each card: list it, or quick sell it.

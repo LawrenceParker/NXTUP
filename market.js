@@ -149,7 +149,7 @@ async function start() {
   }
 
   async function buy(l) {
-    if (!window.confirm("Buy " + [l.player, l.role, l.event_label, l.rating == null ? null : "OVR " + l.rating].filter(Boolean).join(", ") + " for " + l.price.toLocaleString() + " points?")) return;
+    if (!window.confirm("Buy " + [l.player, l.role, l.event_label, l.rating == null ? null : "OVR " + window.NXTUP_formatRating(l.rating)].filter(Boolean).join(", ") + " for " + l.price.toLocaleString() + " points?")) return;
     setStatus("");
     const { error } = await client.rpc("buy_listing", { p_listing_id: l.listing_id });
     if (error) setStatus("Could not buy this card: " + error.message);

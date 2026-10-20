@@ -31,6 +31,15 @@ if (!window.supabase || !config.SUPABASE_URL || config.SUPABASE_URL.startsWith("
   start().catch((err) => setStatus("Something went wrong: " + err.message));
 }
 
+// 37.04 -> "37%", 2.3 -> "2.3%", 0.013 -> "0.013%", 0.0004 -> "<0.001%"
+function formatPercent(pct) {
+  if (pct >= 10) return Math.round(pct) + "%";
+  if (pct >= 1) return pct.toFixed(1) + "%";
+  if (pct >= 0.1) return pct.toFixed(2) + "%";
+  if (pct >= 0.001) return pct.toFixed(3) + "%";
+  return "<0.001%";
+}
+
 // "2d 4h left", "3h 20m left", "12m left"
 function timeLeft(untilIso) {
   const ms = new Date(untilIso) - new Date();
@@ -68,7 +77,8 @@ async function start() {
   }
   let oddsRes = await client.from("pack_odds").select("pack_name, rarity, drop_weight, slot");
   if (oddsRes.error) oddsRes = await client.from("pack_odds").select("pack_name, rarity, drop_weight");
-  const raritiesRes = await client.from("rarities").select("name, drop_weight, sort_order");
+  // one row per event type: its sort order and its share of standard packs
+  const statsRes = await client.from("event_style_stats").select("style, sort_order, effective_weight");
 
   if (packsRes.error) {
     setStatus("Could not load packs. Check that 08_packs_table.sql ran without errors.");
@@ -93,7 +103,7 @@ async function start() {
   // ---- drop chances: whole pack, plus any card-specific lists ---------------
 
   function oddsSections(pack) {
-    const rarities = raritiesRes.data || [];
+    const rarities = (statsRes.data || []).map((r) => ({ name: r.style, sort_order: r.sort_order, drop_weight: r.effective_weight }));
     const orderOf = (name) => {
       const r = rarities.find((x) => x.name === name);
       return r ? r.sort_order : 0;
@@ -198,7 +208,7 @@ async function start() {
           const item = document.createElement("li");
           const strong = document.createElement("strong");
           strong.textContent = o.name;
-          item.append(strong, " " + (o.pct < 1 ? o.pct.toFixed(1) : Math.round(o.pct)) + "%");
+          item.append(strong, " " + formatPercent(o.pct));
           list.appendChild(item);
         });
         details.appendChild(list);
